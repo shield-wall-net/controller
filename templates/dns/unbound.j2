@@ -1,0 +1,91 @@
+{{ shieldwall_managed }}
+
+# see docs: https://unbound.docs.nlnetlabs.nl/en/latest/manpages/unbound.conf.html
+
+# make sure all domains end with '.'
+# make sure longer domains are listed first
+
+# vars:
+#   blackhole_ip4(203.0.113.1), blackhole_ip6(100::1)
+#   override_excludes, domain_overrides, record_overrides, ptr_overrides
+#   blocklist, block_type(always_nxdomain), block_redirect_ip4, block_redirect_ip6
+
+server:
+  # RESOLVE LOCALLY
+  ## USED BY SYSTEM
+  local-zone: "shieldwall." static
+  local-data: "blackhole.shieldwall. {{ default_ttl }} IN A {{ blackhole_ip4 }}"
+  local-data: "blackhole.shieldwall. {{ default_ttl }} IN AAAA {{ blackhole_ip6 }}"
+  local-data: 'blackhole.shieldwall. {{ default_ttl }} IN TXT "NONE"'
+
+  ## EXCLUSIONS
+{% for domain in override_excludes %}
+  local-zone: "{{ domain }}" always_transparent
+{% endfor %}
+
+  ## DOMAIN REDIRECTS
+{% for domain, config in domain_overrides.items() %}
+  local-zone: "{{ domain }}" redirect
+{%   if 'ip4' in config %}
+{%     for ip in config.ip4 %}
+  local-data: "{{ domain }} {{ config.ttl }} IN A {{ config.ip }}"
+{%     endfor %}
+{%   endif %}
+{%   if 'ip6' in config %}
+{%     for ip in config.ip6 %}
+  local-data: "{{ domain }} {{ config.ttl }} IN AAAA {{ config.ip }}"
+{%    endfor %}
+%   endif %}
+{% endfor %}
+
+  ## RECORD OVERRIDES
+{% for domain, domain_config in record_overrides.items() %}
+  local-zone: "{{ domain }}" {{ domain_config.zone_type | default('typetransparent') }}
+{%   for record, record_types in records.items() %}
+{%     if 'A' in record_types %}
+{%       for ip in record_types.A.data %}
+  local-data: "{{ domain }} {{ record_types.A.ttl | default(record_types.ttl) | default(default_ttl) }} IN A {{ ip }}"
+{%       endfor %}
+{%     if 'AAAA' in config %}
+{%       for ip in record_types.AAAA.data %}
+  local-data: "{{ domain }} {{ record_types.AAAA.ttl | default(record_types.ttl) | default(default_ttl) }} IN AAAA {{ ip }}"
+{%       endfor %}
+{%     endif %}
+{%     if 'TXT' in config %}
+{%       for data in record_types.TXT.data %}
+{# todo: split txt data after 255 chars #}
+  local-data: '{{ domain }} {{ record_types.TXT.ttl | default(record_types.ttl) | default(default_ttl) }} IN TXT "{{ data }}"'
+{%       endfor %}
+{%     endif %}
+{%     if 'MX' in config %}
+{%       for data in record_types.MX.data %}
+  local-data: '{{ domain }} {{ record_types.MX.ttl | default(record_types.ttl) | default(default_ttl) }} IN MX {{ data.prio }} "{{ data.target }}"'
+{%       endfor %}
+{%     endif %}
+{%     if 'SRV' in config %}
+{%       for data in record_types.SRV.data %}
+  local-data: '{{ domain }} {{ record_types.SRV.ttl | default(record_types.ttl) | default(default_ttl) }} IN SRV {{ data.prio }} {{ data.weight }} {{ data.port }} {{ data.target }}'
+{%       endfor %}
+{%     endif %}
+{%   endfor %}
+{% endfor %}
+
+  ## PTR OVERRIDES
+{% for ip, domain in ptr_overrides.items() %}
+  local-data-ptr: "{{ ip }} {{ domain }}"
+{% endfor %}
+
+  # BLOCKLIST
+{% for domain in blocklist %}
+{%   if block_redirect_ip4 | default(none, true) is not none or block_redirect_ip6 | default(none, true) is not none %}
+  local-zone: "{{ domain }}" static
+{%     if block_redirect_ip4 | default(none, true) is not none %}
+  local-data: "{{ domain }} {{ default_ttl }} IN A {{ block_redirect_ip4 }}"
+{%     endif %}
+{%     if block_redirect_ip6 | default(none, true) is not none %}
+  local-data: "{{ domain }} {{ default_ttl }} IN AAAA {{ block_redirect_ip4 }}"
+{%     endif %}
+{%   else %}
+local-zone: "{{ domain }}" {{ block_type }}
+{%   endif %}
+{% endfor %}
