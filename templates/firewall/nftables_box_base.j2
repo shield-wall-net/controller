@@ -1,0 +1,161 @@
+# ShieldWall managed
+{% block header %}{% endblock %}
+
+# system configuration that allows the box to communicate to the controller
+
+define SW_SYS_CTRL_IP4 = { 127.0.0.1 };
+define SW_SYS_CTRL_IP6 = { ::1 };
+define SW_SYS_CTRL_PORT = 443;
+define SW_SYS_BOX_MGMT_PORT = 22;
+define IP4_ICMP_BASE = { destination-unreachable, echo-reply, echo-request, time-exceeded, parameter-problem };
+define IP6_ICMP_BASE = { destination-unreachable, packet-too-big, time-exceeded, parameter-problem, mld-listener-query, mld-listener-reduction, mld-listener-done, mld-listener-report, mld2-listener-report, ind-neighbor-advert, ind-neighbor-solicit, nd-neighbor-advert, nd-neighbor-solicit, nd-router-solicit };
+define IP4_NET_PRIVATE = { 192.168.0.0/16, 172.16.0.0/12, 10.0.0.0/8 };
+define IP4_NET_BOGONS = { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 240.0.0.0/4 };
+define IP6_NET_BOGONS = { ::/128, ::1/128, ::ffff:0:0/96, ::/96, 100::/64, 2001:10::/28, 2001:db8::/32, fc00::/7, fe80::/10, fec0::/10, ff00::/8 };
+
+
+table ip security {
+  chain input {
+    type filter hook input priority -10; policy accept;
+
+    ct state invalid log prefix "NFTables box-drop input invalid states: " drop
+    ip frag-off & 0x1fff != 0 counter log prefix "NFTables box-drop input IP fragments:  " drop
+    tcp flags & (fin|syn|rst|psh|ack|urg) == fin|syn|rst|psh|ack|urg counter log prefix "NFTables box-drop input TCP XMAS: " drop
+    tcp flags & (fin|syn|rst|psh|ack|urg) == 0x0 counter log prefix "NFTables box-drop input TCP NULL: " drop
+    tcp flags syn tcp option maxseg size 1-536 counter log prefix "NFTables box-drop input TCP MSS: " drop
+    tcp flags & (fin|syn|rst|ack) != syn ct state new counter log prefix "NFTables box-drop input TCP SYN CT NEW: " drop
+
+  }
+}
+
+table ip managed {
+  chain input_mangle {
+    type filter hook input priority -150; policy accept;
+
+{% block input_mangle %}{% endblock %}
+
+  }
+
+  chain output_mangle {
+    type filter hook output priority -150;
+
+{% block output_mangle %}{% endblock %}
+
+  }
+
+  chain output_route {
+    type route hook output priority -150;
+
+{% block output_route %}{% endblock %}
+
+  }
+
+  chain postrouting_mangle {
+    type filter hook postrouting priority -150; policy accept;
+
+{% block postrouting_mangle %}{% endblock %}
+
+  }
+
+  chain prerouting_dnat {
+    type nat hook prerouting priority -100;
+
+{% block prerouting_dnat %}{% endblock %}
+
+  }
+
+  chain output_dnat {
+    type nat hook output priority -100;
+
+{% block output_dnat %}{% endblock %}
+
+  }
+
+  chain input {
+    type filter hook input priority 0; policy drop;
+
+    jump system_input
+
+{% block input %}{% endblock %}
+
+    # todo: insert only at initial box-setup
+    tcp dport 22 ip saddr $IP4_NET_PRIVATE log prefix "NFTables accept input setup-ssh: " accept
+
+    log prefix "NFTables default-drop input: "
+
+  }
+
+  chain output {
+    type filter hook output priority 0; policy drop;
+
+    jump system_output
+
+{% block output %}{% endblock %}
+
+    log prefix "NFTables default-drop output: "
+
+  }
+
+  chain forward {
+    type filter hook forward priority 0; policy drop;
+
+    jump system_forward
+
+{% block forward %}{% endblock %}
+
+    log prefix "NFTables default-drop forward: "
+
+  }
+
+  chain postrouting_snat {
+    type nat hook postrouting priority 100;
+
+{% block postrouting_snat %}{% endblock %}
+
+  }
+
+  chain system_input {
+    # allow loopback traffic
+    iifname "lo" accept
+
+    # allow controller to connect to the box (failsafe)
+    tcp dport $SW_SYS_BOX_MGMT_PORT ip saddr $SW_SYS_CTRL_IP4 log prefix "NFTables box-accept controller management: " accept
+    tcp dport $SW_SYS_BOX_MGMT_PORT ip6 saddr $SW_SYS_CTRL_IP6 log prefix "NFTables box-accept controller management: " accept
+
+    # allow controller to ping/traceroute the box
+    meta l4proto icmp ip saddr $SW_SYS_CTRL_IP4 accept
+    meta l4proto icmpv6 ip saddr $SW_SYS_CTRL_IP6 accept
+
+    # allow icmpv6 necessary for ipv6 to work
+    icmpv6 type $IP6_ICMP_BASE accept
+
+  }
+
+  chain system_output {
+    # allow loopback traffic
+    oifname "lo" accept
+
+    # allow icmp originating from box
+    icmp type $IP4_ICMP_BASE accept
+    icmp code 30 accept
+    icmpv6 type $IP6_ICMP_BASE accept
+
+    # todo: limit destination to configured dns/ntp servers
+    # allow dns
+    tcp dport { 53, 853 } log prefix "NFTables box-accept output DNS: " accept
+    udp dport 53 log prefix "NFTables box-accept output DNS: " accept
+
+    # allow ntp
+    meta l4proto { tcp, udp } th dport 123 log prefix "NFTables box-accept output NTP: " accept
+
+    # todo: limit destination using DNS
+    # allow updates
+    tcp dport { 80, 443 } log prefix "NFTables box-accept output HTTP+S: " accept
+
+  }
+
+  chain system_forward {
+
+  }
+
+}

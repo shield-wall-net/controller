@@ -1,0 +1,35 @@
+{% extends "nftables_box_base.j2" %}
+{% block header %}{{ shieldwall_managed }}{% endblock %}
+
+{% block input_mangle %}
+{% endblock %}
+
+{% block output_mangle %}
+{% endblock %}
+
+{% block output_route %}
+{% endblock %}
+
+{% block postrouting_mangle %}
+{% endblock %}
+
+{% block prerouting_dnat %}
+{% endblock %}
+
+{% block output_dnat %}
+{% endblock %}
+
+{% block input %}
+{% endblock %}
+
+{% block output %}
+    # todo: drop bogons on public interfaces
+{% endblock %}
+
+{% block forward %}
+    # todo: switch to enable public traffic forwarding
+    ip daddr != $IP4_NET_PRIVATE log prefix "NFTables drop forward public-traffic: " drop
+{% endblock %}
+
+{% block postrouting_snat %}
+{% endblock %}
