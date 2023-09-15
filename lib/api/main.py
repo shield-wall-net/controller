@@ -1,8 +1,8 @@
-from flask import Flask, request, redirect, Response, jsonify
+from flask import Flask, request, jsonify
 from waitress import serve
 
 from ..config import API_PORT
-from boxes import get_box
+from .boxes import get_box
 
 app = Flask('ShieldWall API')
 BAD_BOX_UUID = jsonify({'error': 'Invalid box'})
