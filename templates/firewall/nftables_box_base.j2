@@ -3,32 +3,27 @@
 
 # system configuration that allows the box to communicate to the controller
 
-define SW_SYS_CTRL_IP4 = { 127.0.0.1 };
-define SW_SYS_CTRL_IP6 = { ::1 };
-define SW_SYS_CTRL_PORT = 443;
-define SW_SYS_BOX_MGMT_PORT = 22;
 define IP4_ICMP_BASE = { destination-unreachable, echo-reply, echo-request, time-exceeded, parameter-problem };
-define IP6_ICMP_BASE = { destination-unreachable, packet-too-big, time-exceeded, parameter-problem, mld-listener-query, mld-listener-reduction, mld-listener-done, mld-listener-report, mld2-listener-report, ind-neighbor-advert, ind-neighbor-solicit, nd-neighbor-advert, nd-neighbor-solicit, nd-router-solicit };
+define IP6_ICMP_BASE = { destination-unreachable, packet-too-big, time-exceeded, parameter-problem, mld-listener-query, mld-listener-reduction, mld-listener-done, mld-listener-report, mld2-listener-report };
+define IP6_ICMP_ROUTE = { ind-neighbor-advert, ind-neighbor-solicit, nd-neighbor-advert, nd-neighbor-solicit, nd-router-solicit };
 define IP4_NET_PRIVATE = { 192.168.0.0/16, 172.16.0.0/12, 10.0.0.0/8 };
 define IP4_NET_BOGONS = { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 240.0.0.0/4 };
 define IP6_NET_BOGONS = { ::/128, ::1/128, ::ffff:0:0/96, ::/96, 100::/64, 2001:10::/28, 2001:db8::/32, fc00::/7, fe80::/10, fec0::/10, ff00::/8 };
 
+{% if True %}
+{%   block variables %}{% endblock %}
+{% else %}
+# initial setup-config; todo: override using script
+define IP4_CONTROLLER = { 127.0.0.1 };
+define IP6_CONTROLLER = { ::1 };
+define PORT_CONTROLLER = 443;
+define PORT_BOX_MGMT = 22;
+define IP4_BOX = { 127.0.0.1 };
+define IP6_BOX = { ::1 };
+{% endif %}
 
-table ip security {
-  chain input {
-    type filter hook input priority -10; policy accept;
 
-    ct state invalid log prefix "NFTables box-drop input invalid states: " drop
-    ip frag-off & 0x1fff != 0 counter log prefix "NFTables box-drop input IP fragments:  " drop
-    tcp flags & (fin|syn|rst|psh|ack|urg) == fin|syn|rst|psh|ack|urg counter log prefix "NFTables box-drop input TCP XMAS: " drop
-    tcp flags & (fin|syn|rst|psh|ack|urg) == 0x0 counter log prefix "NFTables box-drop input TCP NULL: " drop
-    tcp flags syn tcp option maxseg size 1-536 counter log prefix "NFTables box-drop input TCP MSS: " drop
-    tcp flags & (fin|syn|rst|ack) != syn ct state new counter log prefix "NFTables box-drop input TCP SYN CT NEW: " drop
-
-  }
-}
-
-table ip managed {
+table inet managed {
   chain input_mangle {
     type filter hook input priority -150; policy accept;
 
@@ -79,7 +74,10 @@ table ip managed {
 {% block input %}{% endblock %}
 
     # todo: insert only at initial box-setup
-    tcp dport 22 ip saddr $IP4_NET_PRIVATE log prefix "NFTables accept input setup-ssh: " accept
+    tcp dport 22 ip saddr $IP4_NET_PRIVATE ct state new log prefix "NFTables accept input setup-ssh: "
+    tcp dport 22 ip saddr $IP4_NET_PRIVATE accept
+
+    ct state established,related accept
 
     log prefix "NFTables default-drop input: "
 
@@ -92,6 +90,8 @@ table ip managed {
 
 {% block output %}{% endblock %}
 
+    ct state established,related accept
+
     log prefix "NFTables default-drop output: "
 
   }
@@ -103,6 +103,8 @@ table ip managed {
 
 {% block forward %}{% endblock %}
 
+    ct state established,related accept
+
     log prefix "NFTables default-drop forward: "
 
   }
@@ -110,7 +112,21 @@ table ip managed {
   chain postrouting_snat {
     type nat hook postrouting priority 100;
 
+    jump system_postrouting_snat
+
 {% block postrouting_snat %}{% endblock %}
+
+  }
+
+  chain security_input {
+    type filter hook input priority -10; policy accept;
+
+    ct state invalid log prefix "NFTables box-drop input invalid states: " drop
+    ip frag-off & 0x1fff != 0 counter log prefix "NFTables box-drop input IP fragments:  " drop
+    tcp flags & (fin|syn|rst|psh|ack|urg) == fin|syn|rst|psh|ack|urg counter log prefix "NFTables box-drop input TCP XMAS: " drop
+    tcp flags & (fin|syn|rst|psh|ack|urg) == 0x0 counter log prefix "NFTables box-drop input TCP NULL: " drop
+    tcp flags syn tcp option maxseg size 1-536 counter log prefix "NFTables box-drop input TCP MSS: " drop
+    tcp flags & (fin|syn|rst|ack) != syn ct state new counter log prefix "NFTables box-drop input TCP SYN CT NEW: " drop
 
   }
 
@@ -119,15 +135,19 @@ table ip managed {
     iifname "lo" accept
 
     # allow controller to connect to the box (failsafe)
-    tcp dport $SW_SYS_BOX_MGMT_PORT ip saddr $SW_SYS_CTRL_IP4 log prefix "NFTables box-accept controller management: " accept
-    tcp dport $SW_SYS_BOX_MGMT_PORT ip6 saddr $SW_SYS_CTRL_IP6 log prefix "NFTables box-accept controller management: " accept
+    tcp dport $PORT_BOX_MGMT ip saddr $IP4_CONTROLLER ct state new log prefix "NFTables box-accept controller management: "
+    tcp dport $PORT_BOX_MGMT ip saddr $IP4_CONTROLLER accept
+    tcp dport $PORT_BOX_MGMT ip6 saddr $IP6_CONTROLLER ct state new log prefix "NFTables box-accept controller management: "
+    tcp dport $PORT_BOX_MGMT ip6 saddr $IP6_CONTROLLER accept
 
     # allow controller to ping/traceroute the box
-    meta l4proto icmp ip saddr $SW_SYS_CTRL_IP4 accept
-    meta l4proto icmpv6 ip saddr $SW_SYS_CTRL_IP6 accept
+    meta l4proto icmp ip saddr $IP4_CONTROLLER accept
+    meta l4proto icmpv6 ip6 saddr $IP6_CONTROLLER accept
 
     # allow icmpv6 necessary for ipv6 to work
-    icmpv6 type $IP6_ICMP_BASE accept
+    ip6 nexthdr icmpv6 icmpv6 type $IP6_ICMP_BASE accept
+    ip6 nexthdr icmpv6 ip6 hoplimit 1 icmpv6 type $IP6_ICMP_ROUTE accept
+    ip6 nexthdr icmpv6 ip6 hoplimit 255 icmpv6 type $IP6_ICMP_ROUTE accept
 
   }
 
@@ -135,26 +155,51 @@ table ip managed {
     # allow loopback traffic
     oifname "lo" accept
 
+    # allow communication with controller
+    tcp dport $PORT_CONTROLLER ip daddr $IP4_CONTROLLER ct state new log prefix "NFTables box-accept output controller: "
+    tcp dport $PORT_CONTROLLER ip daddr $IP4_CONTROLLER accept
+    tcp dport $PORT_CONTROLLER ip6 daddr $IP6_CONTROLLER ct state new log prefix "NFTables box-accept output controller: "
+    tcp dport $PORT_CONTROLLER ip6 daddr $IP6_CONTROLLER accept
+
     # allow icmp originating from box
     icmp type $IP4_ICMP_BASE accept
     icmp code 30 accept
-    icmpv6 type $IP6_ICMP_BASE accept
+
+    # allow icmpv6 necessary for ipv6 to work
+    ip6 nexthdr icmpv6 icmpv6 type $IP6_ICMP_BASE accept
+    ip6 nexthdr icmpv6 ip6 hoplimit 1 icmpv6 type $IP6_ICMP_ROUTE accept
+    ip6 nexthdr icmpv6 ip6 hoplimit 255 icmpv6 type $IP6_ICMP_ROUTE accept
 
     # todo: limit destination to configured dns/ntp servers
     # allow dns
-    tcp dport { 53, 853 } log prefix "NFTables box-accept output DNS: " accept
+    tcp dport { 53, 853 } ct state new log prefix "NFTables box-accept output DNS: "
+    tcp dport { 53, 853 } accept
     udp dport 53 log prefix "NFTables box-accept output DNS: " accept
 
     # allow ntp
-    meta l4proto { tcp, udp } th dport 123 log prefix "NFTables box-accept output NTP: " accept
+    tcp dport 123 ct state new log prefix "NFTables box-accept output NTP: "
+    tcp dport 123 accept
+    udp dport 123 log prefix "NFTables box-accept output NTP: " accept
 
-    # todo: limit destination using DNS
+    # todo: limit destination using proxy
     # allow updates
-    tcp dport { 80, 443 } log prefix "NFTables box-accept output HTTP+S: " accept
+    tcp dport { 80, 443 } ct state new log prefix "NFTables box-accept output HTTP+S: "
+    tcp dport { 80, 443 } accept
 
   }
 
   chain system_forward {
+
+    # allow icmpv6 necessary for ipv6 to work
+    ip6 nexthdr icmpv6 icmpv6 type $IP6_ICMP_BASE accept
+    ip6 nexthdr icmpv6 ip6 hoplimit 1 icmpv6 type $IP6_ICMP_ROUTE accept
+    ip6 nexthdr icmpv6 ip6 hoplimit 255 icmpv6 type $IP6_ICMP_ROUTE accept
+
+  }
+
+  chain system_postrouting_snat {
+
+    ip saddr $IP4_BOX ip daddr != $IP4_NET_PRIVATE masquerade
 
   }
 
