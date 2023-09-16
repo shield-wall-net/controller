@@ -17,6 +17,10 @@
 {% endblock %}
 
 {% block prerouting_dnat %}
+{%   if use_proxy | default(true) %}
+    ip daddr != $IP4_PROXY_EXCLUDES tcp dport $PORT_PROXY_INTERCEPT dnat to 127.0.0.1:$PORT_PROXY_TRANSPARENT
+    ip6 daddr != $IP6_PROXY_EXCLUDES tcp dport $PORT_PROXY_INTERCEPT dnat to 127.0.0.1:$PORT_PROXY_TRANSPARENT
+{%   endif %}
 {% endblock %}
 
 {% block output_dnat %}

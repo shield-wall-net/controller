@@ -9,6 +9,11 @@ define IP6_ICMP_ROUTE = { ind-neighbor-advert, ind-neighbor-solicit, nd-neighbor
 define IP4_NET_PRIVATE = { 192.168.0.0/16, 172.16.0.0/12, 10.0.0.0/8 };
 define IP4_NET_BOGONS = { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 240.0.0.0/4 };
 define IP6_NET_BOGONS = { ::/128, ::1/128, ::ffff:0:0/96, ::/96, 100::/64, 2001:10::/28, 2001:db8::/32, fc00::/7, fe80::/10, fec0::/10, ff00::/8 };
+# using BOGON 'TEST-NET-2' to keep us from having random routing issues
+define IP4_NET_DOCKER = { 198.51.100.0/24 };
+define USER_PROXY = 13;
+define PORT_PROXY_HTTP = 3128;
+define PORT_PROXY_TRANSPARENT = 3129;
 
 {% if True %}
 {%   block variables %}{% endblock %}
@@ -20,6 +25,12 @@ define PORT_CONTROLLER = 443;
 define PORT_BOX_MGMT = 22;
 define IP4_BOX = { 127.0.0.1 };
 define IP6_BOX = { ::1 };
+define PORT_PROXY_INTERCEPT = { 80, 443 };
+define IP4_NET_PROXY_EXCLUDES = { 127.0.0.1 };
+define IP6_NET_PROXY_EXCLUDES = { ::1 };
+# todo: add controller ips
+define IP4_NET_PROXY_EXCLUDES_BOX = { 127.0.0.1 };
+define IP6_NET_PROXY_EXCLUDES_BOX = { ::1 };
 {% endif %}
 
 
@@ -57,10 +68,14 @@ table inet managed {
 
 {% block prerouting_dnat %}{% endblock %}
 
+    # MARK: INSERT BOX-SETUP prerouting_dnat
+
   }
 
   chain output_dnat {
     type nat hook output priority -100;
+
+    jump system_output_dnat
 
 {% block output_dnat %}{% endblock %}
 
@@ -73,9 +88,7 @@ table inet managed {
 
 {% block input %}{% endblock %}
 
-    # todo: insert only at initial box-setup
-    tcp dport 22 ip saddr $IP4_NET_PRIVATE ct state new log prefix "NFTables accept input setup-ssh: "
-    tcp dport 22 ip saddr $IP4_NET_PRIVATE accept
+    # MARK: INSERT BOX-SETUP input
 
     ct state established,related accept
 
@@ -115,6 +128,14 @@ table inet managed {
     jump system_postrouting_snat
 
 {% block postrouting_snat %}{% endblock %}
+
+  }
+
+  chain system_output_dnat {
+
+    # redirect box outbound HTTP+S traffic to proxy
+    meta skuid != $PROXY_UID ip daddr != $IP4_PROXY_EXCLUDES_BOX tcp dport $PORT_PROXY_INTERCEPT dnat to 127.0.0.1:$PORT_PROXY_TRANSPARENT
+    meta skuid != $PROXY_UID ip6 daddr != $IP6_PROXY_EXCLUDES_BOX tcp dport $PORT_PROXY_INTERCEPT dnat to 127.0.0.1:$PORT_PROXY_TRANSPARENT
 
   }
 
@@ -181,8 +202,7 @@ table inet managed {
     tcp dport 123 accept
     udp dport 123 log prefix "NFTables box-accept output NTP: " accept
 
-    # todo: limit destination using proxy
-    # allow updates
+    # allow system traffic (updates, and so on); limited by proxy
     tcp dport { 80, 443 } ct state new log prefix "NFTables box-accept output HTTP+S: "
     tcp dport { 80, 443 } accept
 
@@ -195,11 +215,16 @@ table inet managed {
     ip6 nexthdr icmpv6 ip6 hoplimit 1 icmpv6 type $IP6_ICMP_ROUTE accept
     ip6 nexthdr icmpv6 ip6 hoplimit 255 icmpv6 type $IP6_ICMP_ROUTE accept
 
+    # allow system traffic (updates, and so on)
+    ip saddr $IP4_NET_DOCKER tcp dport { 80, 443 } ct state new log prefix "NFTables box-accept output HTTP+S: "
+    ip saddr $IP4_NET_DOCKER tcp dport { 80, 443 } accept
+
   }
 
   chain system_postrouting_snat {
 
     ip saddr $IP4_BOX ip daddr != $IP4_NET_PRIVATE masquerade
+    ip saddr $IP4_NET_DOCKER ip daddr != $IP4_NET_DOCKER masquerade
 
   }
 

@@ -1,0 +1,97 @@
+# todo: move defaults to pre-processing
+{% set proxy_ciphers = proxy_opts.ciphers | default('HIGH:MEDIUM:!RC4:!aNULL:!eNULL:!LOW:!3DES:!MD5:!EXP:!PSK:!SRP:!DSS') %}
+{% set proxy_conn_opts = proxy_opts.listener_opts | default('NO_SSLv3,NO_TLSv1,SINGLE_DH_USE,SINGLE_ECDH_USE') %}
+{% set proxy_cache_ssl = proxy_opts.cache_ssl | default('25') %}
+{% set proxy_min_tls = proxy_opts.min_tls | default('1.1') %}
+
+# BASE CONFIG
+visible_hostname {{ proxy_opts.visible_hostname | default('ShieldWall Proxy') }}
+shutdown_lifetime 5 seconds
+pid_filename /run/squid.pid
+coredump_dir /var/spool/squid
+acl hasRequest has request
+logfile_rotate 0
+logformat custom_format {{ proxy_opts.logformat | default('%6tr %>a %Ss/%03Hs %<st %rm %ru %un %Sh/%<A %mt') }}
+access_log /var/log/squid/access.log custom_format hasRequest
+cache_log /var/log/squid/cache.log
+cache_store_log /var/log/squid/store.log
+cache_mem {{ proxy_opts.cache_mem | default('64') }} MB
+forwarded_for {{ proxy_opts.forwarded_for | default('off') }}
+
+# SSL BASE CONFIG
+acl CONNECT method CONNECT
+acl ssl_handshake at_step SslBump1
+{% for port in proxy_opts.ssl_ports | default([443]) %}
+acl ssl_ports port {{ port }}
+{% endfor %}
+
+http_access deny CONNECT !ssl_ports
+http_access allow CONNECT ssl_handshake
+
+sslcrtd_children {{ proxy_opts.sslcrtd_children | default(32) }}
+sslcrtd_program /usr/lib/squid/security_file_certgen -s /var/lib/squid/ssl_db -M {{ proxy_cache_ssl }}MB
+sslproxy_session_cache_size {{ proxy_cache_ssl }} MB
+sslproxy_session_ttl {{ proxy_opts.session_ttl | default('900') }}
+sslproxy_cert_error deny all
+
+# ADDITIONAL CONFIG
+{% for line in proxy_additional_lines | default([]) %}
+{{ line }}
+{% endfor %}
+
+# LISTENERS
+{% set proxy_tcp_keepalive = proxy_opts.tcp_keepalive | default('60,30,3') %}
+{% block listener %}{% endblock %}
+
+http_port 3130 intercept tcpkeepalive={{ proxy_tcp_keepalive }}
+
+# OUTBOUND
+{% set proxy_client_cert = '' %}
+{% set proxy_client_key = '' %}
+{% set proxy_tls_flags = '' %}
+{% if proxy_opts.client_cert | default(false, true) %}
+{%   set proxy_client_cert = 'cert=' + proxy_opts.client_cert %}
+{%   set proxy_client_key = 'key=' + proxy_opts.client_key %}
+{% endif %}
+{% if proxy_opts.tls_flags | default(false, true) %}
+{%   set proxy_tls_flags = 'flags=' + proxy_opts.tls_flags %}
+{% endif %}
+tls_outgoing_options options={{ proxy_conn_opts }} cipher={{ proxy_ciphers }} min-version={{ proxy_min_tls }} default-ca={{ proxy_opts.system_truststore | default('on') }} cafile=/var/lib/squid/ssl/trusted_cas.crt {{ proxy_client_cert }} {{ proxy_client_key }} {{ proxy_tls_flags }}
+
+# MAIN ACLS
+{% for port in proxy_opts.ports | default([80, 443]) %}
+acl dest_ports port {{ port }}
+{% endfor %}
+http_access deny !dest_ports
+
+{% if not proxy_public_traffic | default(false) | bool %}
+acl src_internal src 127.0.0.0/8
+acl src_internal src 192.168.0.0/16
+acl src_internal src 172.16.0.0/12
+acl src_internal src 10.0.0.0/8
+http_access deny !src_internal
+{% endif %}
+
+# todo: add acl that contains all box-ips
+acl src_box src 127.0.0.1
+acl src_box src ::1
+
+# todo: add acl that contains the controller-ips
+acl dst_controller 127.0.0.1
+acl dst_controller ::1
+
+http_access allow src_box dst_controller
+
+acl dom_box_repos dstdomain download.docker.com
+acl dom_box_repos dstdomain deb.debian.org
+acl dom_box_repos dstdomain security.debian.org
+acl dom_box_repos dstdomain debian.map.fastlydns.net
+acl dom_box_repos dstdomain debian.map.fastly.net
+acl dom_box_repos dstdomain raw.githubusercontent.com
+
+http_access allow src_box dom_box_repos
+
+# ACLS
+
+# IMPLICIT
+http_access {{ proxy_implicit | default('deny') }} all

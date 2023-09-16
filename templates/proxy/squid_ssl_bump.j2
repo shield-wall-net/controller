@@ -1,2 +1,9 @@
-{{ shieldwall_managed }}
+{% block header %}{{ shieldwall_managed }}{% endblock %}
 
+{% block listener %}
+http_port 3128 ssl-bump tcpkeepalive={{ proxy_tcp_keepalive }} cert=/var/lib/squid/ssl/server.crt key=/var/lib/squid/ssl/server.key tls-dh=/var/lib/squid/ssl/server.dh.pem cipher={{ proxy_ciphers }} options={{ proxy_conn_opts }}
+http_port 3129 intercept ssl-bump tcpkeepalive={{ proxy_tcp_keepalive }} cert=/var/lib/squid/ssl/server.crt key=/var/lib/squid/ssl/server.key tls-dh=/var/lib/squid/ssl/server.dh.pem cipher={{ proxy_ciphers }} options={{ proxy_conn_opts }}
+https_port 3130 intercept ssl-bump tcpkeepalive={{ proxy_tcp_keepalive }} cert=/var/lib/squid/ssl/server.crt key=/var/lib/squid/ssl/server.key tls-dh=/var/lib/squid/ssl/server.dh.pem cipher={{ proxy_ciphers }} options={{ proxy_conn_opts }}
+ssl_bump peek step1 ssl_ports
+ssl_bump splice all
+{% endblock %}
