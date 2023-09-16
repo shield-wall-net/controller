@@ -2,7 +2,7 @@
 
 {% block listener %}
 http_port 3128 ssl-bump tcpkeepalive={{ proxy_tcp_keepalive }} cert=/var/lib/squid/ssl/subca.crt key=/var/lib/squid/ssl/subca.key tls-dh=/var/lib/squid/ssl/server.dh.pem generate-host-certificates=on dynamic_cert_mem_cache_size={{ proxy_cache_ssl }}MB cipher={{ proxy_ciphers }} options={{ proxy_conn_opts }}
-http_port 3129 intercept ssl-bump tcpkeepalive={{ proxy_tcp_keepalive }} cert=/var/lib/squid/ssl/subca.crt key=/var/lib/squid/ssl/subca.key tls-dh=/var/lib/squid/ssl/server.dh.pem generate-host-certificates=on dynamic_cert_mem_cache_size={{ proxy_cache_ssl }}MB cipher={{ proxy_ciphers }} options={{ proxy_conn_opts }}
+http_port 3129 intercept tcpkeepalive={{ proxy_tcp_keepalive }} cert=/var/lib/squid/ssl/subca.crt key=/var/lib/squid/ssl/subca.key tls-dh=/var/lib/squid/ssl/server.dh.pem generate-host-certificates=on dynamic_cert_mem_cache_size={{ proxy_cache_ssl }}MB cipher={{ proxy_ciphers }} options={{ proxy_conn_opts }}
 https_port 3129 intercept ssl-bump tcpkeepalive={{ proxy_tcp_keepalive }} cert=/var/lib/squid/ssl/subca.crt key=/var/lib/squid/ssl/subca.key tls-dh=/var/lib/squid/ssl/server.dh.pem generate-host-certificates=on dynamic_cert_mem_cache_size={{ proxy_cache_ssl }}MB cipher={{ proxy_ciphers }} options={{ proxy_conn_opts }}
 ssl_bump peek step1 ssl_ports
 ssl_bump splice all

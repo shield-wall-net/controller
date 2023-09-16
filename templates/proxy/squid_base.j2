@@ -11,8 +11,8 @@ pid_filename /run/squid.pid
 coredump_dir /var/spool/squid
 acl hasRequest has request
 logfile_rotate 0
-logformat custom_format {{ proxy_opts.logformat | default('%6tr %>a %Ss/%03Hs %<st %rm %ru %un %Sh/%<A %mt') }}
-access_log /var/log/squid/access.log custom_format hasRequest
+logformat custom {{ proxy_opts.logformat | default('%>a %Ss/%03Hs %<st %rm %ru %un %Sh/%<A %mt') }}
+access_log syslog:local2 custom hasRequest
 cache_log /var/log/squid/cache.log
 cache_store_log /var/log/squid/store.log
 cache_mem {{ proxy_opts.cache_mem | default('64') }} MB
@@ -43,8 +43,6 @@ sslproxy_cert_error deny all
 {% set proxy_tcp_keepalive = proxy_opts.tcp_keepalive | default('60,30,3') %}
 {% block listener %}{% endblock %}
 
-http_port 3130 intercept tcpkeepalive={{ proxy_tcp_keepalive }}
-
 # OUTBOUND
 {% set proxy_client_cert = '' %}
 {% set proxy_client_key = '' %}
@@ -59,18 +57,15 @@ http_port 3130 intercept tcpkeepalive={{ proxy_tcp_keepalive }}
 tls_outgoing_options options={{ proxy_conn_opts }} cipher={{ proxy_ciphers }} min-version={{ proxy_min_tls }} default-ca={{ proxy_opts.system_truststore | default('on') }} cafile=/var/lib/squid/ssl/trusted_cas.crt {{ proxy_client_cert }} {{ proxy_client_key }} {{ proxy_tls_flags }}
 
 # MAIN ACLS
+acl src_proto_ip6 src ipv6
+acl dst_proto_ip6 dst ipv6
+http_access deny src_proto_ip6 !all
+http_access deny dst_proto_ip6 !all
+
 {% for port in proxy_opts.ports | default([80, 443]) %}
 acl dest_ports port {{ port }}
 {% endfor %}
 http_access deny !dest_ports
-
-{% if not proxy_public_traffic | default(false) | bool %}
-acl src_internal src 127.0.0.0/8
-acl src_internal src 192.168.0.0/16
-acl src_internal src 172.16.0.0/12
-acl src_internal src 10.0.0.0/8
-http_access deny !src_internal
-{% endif %}
 
 # todo: add acl that contains all box-ips
 acl src_box src 127.0.0.1
@@ -90,6 +85,14 @@ acl dom_box_repos dstdomain debian.map.fastly.net
 acl dom_box_repos dstdomain raw.githubusercontent.com
 
 http_access allow src_box dom_box_repos
+
+{% if not proxy_public_traffic | default(false) | bool %}
+acl src_internal src 127.0.0.0/8
+acl src_internal src 192.168.0.0/16
+acl src_internal src 172.16.0.0/12
+acl src_internal src 10.0.0.0/8
+http_access deny !src_internal !dst_proto_ip6
+{% endif %}
 
 # ACLS
 
