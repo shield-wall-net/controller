@@ -12,11 +12,13 @@ coredump_dir /var/spool/squid
 acl hasRequest has request
 logfile_rotate 0
 logformat custom {{ proxy_opts.logformat | default('%>a %Ss/%03Hs %<st %rm %ru %un %Sh/%<A %mt') }}
-access_log syslog:local2 custom hasRequest
-cache_log /var/log/squid/cache.log
-cache_store_log /var/log/squid/store.log
+access_log syslog:local2.info custom hasRequest
+cache_log /var/log/shieldwall/squid_cache.log
+cache_store_log /var/log/shieldwall/squid_store.log
 cache_mem {{ proxy_opts.cache_mem | default('64') }} MB
 forwarded_for {{ proxy_opts.forwarded_for | default('off') }}
+# false positives because of low DNS TTL
+host_verify_strict {{ proxy_opts.host_verify_strict | default('off') }}
 
 # SSL BASE CONFIG
 acl CONNECT method CONNECT
@@ -54,7 +56,7 @@ sslproxy_cert_error deny all
 {% if proxy_opts.tls_flags | default(false, true) %}
 {%   set proxy_tls_flags = 'flags=' + proxy_opts.tls_flags %}
 {% endif %}
-tls_outgoing_options options={{ proxy_conn_opts }} cipher={{ proxy_ciphers }} min-version={{ proxy_min_tls }} default-ca={{ proxy_opts.system_truststore | default('on') }} cafile=/var/lib/squid/ssl/trusted_cas.crt {{ proxy_client_cert }} {{ proxy_client_key }} {{ proxy_tls_flags }}
+tls_outgoing_options options={{ proxy_conn_opts }} cipher={{ proxy_ciphers }} min-version={{ proxy_min_tls }} default-ca={{ proxy_opts.system_truststore | default('on') }} cafile=/etc/ssl/certs/shieldwall.trusted_cas.crt {{ proxy_client_cert }} {{ proxy_client_key }} {{ proxy_tls_flags }}
 
 # MAIN ACLS
 acl src_proto_ip6 src ipv6
@@ -83,6 +85,7 @@ acl dom_box_repos dstdomain security.debian.org
 acl dom_box_repos dstdomain debian.map.fastlydns.net
 acl dom_box_repos dstdomain debian.map.fastly.net
 acl dom_box_repos dstdomain raw.githubusercontent.com
+acl dom_box_repos dstdomain codeload.github.com
 
 http_access allow src_box dom_box_repos
 
