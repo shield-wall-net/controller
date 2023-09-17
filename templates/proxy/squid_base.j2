@@ -17,8 +17,9 @@ cache_log /var/log/shieldwall/squid_cache.log
 cache_store_log /var/log/shieldwall/squid_store.log
 cache_mem {{ proxy_opts.cache_mem | default('64') }} MB
 forwarded_for {{ proxy_opts.forwarded_for | default('off') }}
-# false positives because of low DNS TTL
 host_verify_strict {{ proxy_opts.host_verify_strict | default('off') }}
+client_dst_passthru {{ proxy_opts.client_dst_passthru | default('on') }}
+dns_nameservers 127.0.0.1 {{ dns_servers | join(' ') }}
 
 # SSL BASE CONFIG
 acl CONNECT method CONNECT
