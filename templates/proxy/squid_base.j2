@@ -20,6 +20,8 @@ forwarded_for {{ proxy_opts.forwarded_for | default('off') }}
 host_verify_strict {{ proxy_opts.host_verify_strict | default('off') }}
 client_dst_passthru {{ proxy_opts.client_dst_passthru | default('on') }}
 dns_nameservers 127.0.0.1 {{ dns_servers | join(' ') }}
+shutdown_lifetime {{ proxy_opts.shutdown_lifetime | default('3') }} seconds
+http_access deny manager
 
 # SSL BASE CONFIG
 acl CONNECT method CONNECT
