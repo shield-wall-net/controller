@@ -1,0 +1,59 @@
+# {{ shieldwall_managed }}
+
+module(
+    load="imtcp"
+    StreamDriver.Name="gtls"
+    StreamDriver.Mode="1"
+    StreamDriver.Authmode="x509/certvalid"
+)
+
+input(
+    type="imtcp"
+    port="10514"
+    KeepAlive="on"
+    StreamDriver="gtls"
+    StreamDriverMode="1"
+    StreamDriverAuthMode="x509/certvalid"
+    StreamDriverCAFile="/etc/ssl/certs/shieldwall.ca.crt"
+    StreamDriverCertFile="/etc/ssl/certs/shieldwall.ctrl.crt"
+    StreamDriverKeyFile="/etc/ssl/certs/shieldwall.ctrl.key"
+)
+
+# todo: make (duplicate) saving to disk optional
+template(name="ShieldWallBoxes" type="string" string="/var/log/shieldwall/boxes/%FROMHOST-IP%_%HOSTNAME%.log")
+
+if ($fromhost-ip != "127.0.0.1") then {
+    action(type="omfile" dynaFile="ShieldWallBoxes")
+    # forward to promtail/loki logserver
+    action(
+        type="omfwd"
+        template="RSYSLOG_SyslogProtocol23Format"
+        target="127.0.0.1"
+        Port="10515"
+        protocol="tcp"
+        KeepAlive="on"
+        TCP_FrameDelimiter="0"
+        action.resumeRetryCount="-1"
+        queue.type="LinkedList"
+        queue.saveonshutdown="on"
+        queue.filename="out-shieldwall-logserver"
+        queue.maxDiskSpace="2g"
+    )
+    stop
+}
+
+# forward to promtail/loki logserver
+*.* action(
+    type="omfwd"
+    template="RSYSLOG_SyslogProtocol23Format"
+    target="127.0.0.1"
+    Port="10516"
+    protocol="tcp"
+    KeepAlive="on"
+    TCP_FrameDelimiter="0"
+    action.resumeRetryCount="-1"
+    queue.type="LinkedList"
+    queue.saveonshutdown="on"
+    queue.filename="out-shieldwall-logserver2"
+    queue.maxDiskSpace="1g"
+)

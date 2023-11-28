@@ -1,0 +1,53 @@
+---
+
+# {{ shieldwall_managed }}
+# see: https://grafana.com/docs/loki/latest/send-data/promtail/configuration/#syslog
+
+server:
+  http_listen_port: 9081
+  grpc_listen_port: 0
+
+positions:
+  filename: '/var/spool/promtail-syslog-positions.yml'
+
+clients:
+  - url: 'http://127.0.0.1:3100/loki/api/v1/push'
+
+scrape_configs:
+  - job_name: 'ShieldWallBoxes'
+    syslog:
+      listen_address: '0.0.0.0:10515'
+      listen_protocol: 'tcp'
+      labels:
+        job: 'boxes'
+    relabel_configs:
+      - source_labels: ['__syslog_connection_ip_address']
+        target_label: 'source'
+      - source_labels: ['__syslog_message_hostname']
+        target_label: 'hostname'
+      - source_labels: ['__syslog_message_severity']
+        target_label: 'level'
+      - source_labels: ['__syslog_message_facility']
+        target_label: 'facility'
+      - source_labels: ['__syslog_message_app_name']
+        target_label: 'application'
+      - source_labels: ['__syslog_message_msg_id']
+        target_label: 'syslog_id'
+
+  - job_name: 'ShieldWallController'
+    syslog:
+      listen_address: '0.0.0.0:10516'
+      listen_protocol: 'tcp'
+      labels:
+        job: 'controller'
+    relabel_configs:
+      - source_labels: ['__syslog_message_hostname']
+        target_label: 'hostname'
+      - source_labels: ['__syslog_message_severity']
+        target_label: 'level'
+      - source_labels: ['__syslog_message_facility']
+        target_label: 'facility'
+      - source_labels: ['__syslog_message_app_name']
+        target_label: 'application'
+      - source_labels: ['__syslog_message_msg_id']
+        target_label: 'syslog_id'

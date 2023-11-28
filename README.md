@@ -22,8 +22,7 @@ Controllers are self-hosted.
   - [ ] Patch/Package management
   - [ ] Configuration rollout
 - [ ] Logging
-  - [ ] Boxes => Rsyslog-TLS => Controller File-System
-  - [ ] File-System => [Grafana Loki](https://grafana.com/docs/loki/latest/get-started/overview)
+  - [ ] Boxes => Rsyslog-TLS => Controller => [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/) => [Grafana Loki](https://grafana.com/docs/loki/latest/get-started/overview)
   - [ ] [Visualize/Log Analysis](https://grafana.com/docs/loki/latest/visualize/grafana/)
   - [ ] [Alerting](https://grafana.com/docs/loki/latest/alert/)
 

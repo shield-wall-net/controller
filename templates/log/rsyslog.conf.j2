@@ -2,13 +2,11 @@
 
 *.* action(
     type="omfwd"
-    template="RSYSLOG_SyslogProtocol23Format"
     target="{{ syslog.controller }}"
     StreamDriverPermittedPeers="{{ syslog.controller }}"
     Port="{{ syslog.controller_port }}"
     protocol="tcp"
     KeepAlive="on"
-    TCP_FrameDelimiter="0"
     action.resumeRetryCount="-1"
     queue.type="LinkedList"
     queue.saveonshutdown="on"
@@ -22,35 +20,32 @@
     StreamDriverKeyFile="/etc/ssl/certs/shieldwall.box.key"
 )
 
-if
-  $programname == 'shieldwall_box'
-then /var/log/shieldwall/box.log
-& stop
+if ($programname == "shieldwall_box") then {
+    /var/log/shieldwall/box.log
+    stop
+}
 
-if
-  $programname == 'shieldwall_update'
-then /var/log/shieldwall/update.log
-& stop
+if ($programname == "shieldwall_update") then {
+    /var/log/shieldwall/update.log
+    stop
+}
 
-if
-  $syslogfacility == 0 and
-  $msg contains '] NFTables'
-then /var/log/shieldwall/nftables.log
-& stop
+if ($syslogfacility == 0 and $msg contains "] NFTables") then {
+    /var/log/shieldwall/nftables.log
+    stop
+}
 
-if
-  $programname == 'dhcp'
-then /var/log/shieldwall/dhcp.log
-& stop
+if ($programname == "dhcp") then {
+    /var/log/shieldwall/dhcp.log
+    stop
+}
 
-if
-  $programname == 'squid' and
-  $syslogfacility-text == 'local2'
-then /var/log/shieldwall/squid_access.log
-& stop
+if ($programname == "squid" and $syslogfacility-text == "local2") then {
+    /var/log/shieldwall/squid_access.log
+    stop
+}
 
-if
-  $programname == 'squid' and
-  $syslogfacility-text != 'local2'
-then /var/log/shieldwall/squid_service.log
-& stop
+if ($programname == "squid" and $syslogfacility-text != "local2") then {
+    /var/log/shieldwall/squid_service.log
+    stop
+}
