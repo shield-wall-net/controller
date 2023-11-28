@@ -1,0 +1,24 @@
+# {{ shieldwall_managed }}
+# /etc/systemd/system/isc-dhcp-server.service.d/override.conf
+
+[Unit]
+# Documentation=https://github.com/shield-wall-net/box
+After=network.target
+PartOf=networking.service
+
+[Service]
+EnvironmentFile=/etc/default/isc-dhcp-server
+
+ExecStartPre=/usr/bin/sleep 2
+ExecStartPre=/usr/sbin/dhcpd -t -cf /etc/dhcp/dhcpd.conf
+ExecStartPre=/usr/sbin/dhcpd -t -cf /etc/dhcp/dhcpd6.conf
+ExecStart=
+ExecStart=/etc/init.d/isc-dhcp-server start
+ExecStop=/etc/init.d/isc-dhcp-server stop
+
+Restart=on-failure
+RestartSec=5s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dhcp

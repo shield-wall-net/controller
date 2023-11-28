@@ -1,0 +1,43 @@
+# {{ shieldwall_managed }}
+
+# /etc/dhcp/dhcpd.conf
+
+ddns-update-style none;
+
+default-lease-time {{ dhcp.lease_time }};
+max-lease-time {{ dhcp.lease_time_max }};
+
+{% for option in dhcp.options | default([]) %}
+option {{ option }};
+{% endfor %}
+
+
+{% for name, config in dhcp.ip4 %}
+# NETWORK {{ name }}
+subnet {{ config.network }} netmask {{ config.netmask }} {
+  range {{ config.start }} {{ config.end }};
+  option routers {{ config.gateway }};
+{%   if domain_name in config %}
+  option domain-name "{{ config.domain_name }}";
+{%   endif %}
+{%   if dns_servers in config %}
+  option domain-name-servers {% for srv in config.dns_servers %}{{ srv }}{% if not loop.last %}, {% endif %}{% endfor %};
+{%   endif %}
+{%   for option in config.options | default([]) %}
+  option {{ option }};
+{%   endfor %}
+}
+
+## STATIC LEASES
+{%   for host_name, lease_config in config.hosts %}
+host {{ host_name }} {
+  hardware ethernet {{ lease_config.mac }};
+  fixed-address {{ lease_config.ip }};
+  option host-name "{{ host_name }}";
+{%   for option in lease_config.options | default([]) %}
+  option {{ option }};
+{%   endfor %}
+}
+{%   endfor %}
+
+{% endfor %}

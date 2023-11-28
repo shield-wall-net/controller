@@ -1,0 +1,8 @@
+# {{ shieldwall_managed }}
+# /etc/default/isc-dhcp-server
+
+DHCPDv4_CONF=/etc/dhcp/dhcpd.conf
+DHCPDv6_CONF=/etc/dhcp/dhcpd6.conf
+{% for name, config in dhcp %}
+INTERFACESv4="{% for config in dhcp.ip4.values() %}{{ config.int }}{% if not loop.last %} {% endif %}{% endfor %}"
+INTERFACESv6="{% for config in dhcp.ip6.values() %}{{ config.int }}{% if not loop.last %} {% endif %}{% endfor %}"

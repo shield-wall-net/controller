@@ -1,2 +1,12 @@
-{{ shieldwall_managed }}
+# {{ shieldwall_managed }}
 
+/var/log/shieldwall/*.log {
+    su shieldwall shieldwall
+    daily
+    rotate 30
+    missingok
+    notifempty
+    create 640 root adm
+    compress
+    delaycompress
+}

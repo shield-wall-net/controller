@@ -1,0 +1,37 @@
+# {{ shieldwall_managed }}
+# todo: send list of existing interfaces to controller at registration/update
+{% set nic_attributes = ['address', 'gateway', 'dns-nameservers'] %}
+
+auto lo
+iface lo inet loopback
+
+{% for name, config in interfaces.items() %}
+# PHYSICAL INTERFACE {{ name }}{% if 'description' in config %}: {{ config.description }}{% endif %}
+{%   if config.enabled | bool %}
+auto {{ name }}
+allow-hotplug {{ name }}
+iface {{ name }} inet {{ config.mode }}
+{%       for attr in nic_attributes %}
+{%         if attr in vlan_config %}
+  {{ attr }} {{ vlan_config[attr] }}
+{%         endif %}
+{%       endfor %}
+
+{%     for vlan, vlan_config in config.vlans.items() %}
+{%       if 'description' in config %}## VLAN: {{ config.description }}{% endif %}
+auto {{ name }}.{{ vlan }}
+iface {{ name }}.{{ vlan }} inet {{ vlan_config.mode }}
+{%       for attr in nic_attributes %}
+{%         if attr in vlan_config %}
+  {{ attr }} {{ vlan_config[attr] }}
+{%         endif %}
+{%       endfor %}
+
+{%     endfor %}
+
+{%   endif %}
+iface {{ name }} inet manual
+
+{% endfor %}
+
+# todo: bridge support

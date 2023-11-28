@@ -1,0 +1,10 @@
+# {{ shieldwall_managed }}
+# todo: implement collector and forward via encrypted transport to controller (https://github.com/cloudflare/goflow)
+
+# install:
+#   copy to: /etc/softflowd/shieldwall.conf
+#   systemctl enable softflowd@shieldwall.service
+#   systemctl start softflowd@shieldwall.service
+
+interface='{{ softflow.interface }}'
+options='-v 9 -n 127.0.0.1:12055'
