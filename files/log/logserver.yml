@@ -1,5 +1,14 @@
 ---
 
+# todo: on host-system
+#   install docker-ce
+#   install docker-compose
+#   useradd --uid 472 grafana --system
+#   mkdir -p /var/lib/shieldwall/log/grafana/
+#   chown grafana:grafana /var/lib/shieldwall/log/grafana/
+
+# todo: authentication
+
 version: '3'
 
 networks:
@@ -15,9 +24,9 @@ services:
   log-loki:
     image: 'grafana/loki:latest'
     ports:
-      - '127.0.0.1:3100:3100'
+      - '127.0.0.1:3100:3100'  # log input
     volumes:
-      - '/etc/shieldwall/log_loki.yaml:/etc/loki/local-config.yaml'
+      - '/etc/shieldwall/log_loki.yml:/etc/loki/local-config.yaml'
     command: '-config.file=/etc/loki/local-config.yaml'
     networks:
       - loki
@@ -26,12 +35,12 @@ services:
   log-promtail:
     image: 'grafana/promtail:latest'
     volumes:
-      - '/var/log/shieldwall:/var/log'
-      - '/etc/shieldwall/log_promtail.yaml:/etc/promtail/config.yml'
+      - '/var/log/shieldwall:/var/log/shieldwall'
+      - '/etc/shieldwall/log_promtail.yml:/etc/promtail/config.yml'
     command: '-config.file=/etc/promtail/config.yml'
     ports:
-      - '127.0.0.1:10515:10515'
-      - '127.0.0.1:10516:10516'
+      - '127.0.0.1:10515:10515'  # syslog
+      - '127.0.0.1:9080:9080'  # web-ui
     networks:
       - loki
     restart: 'always'
@@ -39,35 +48,17 @@ services:
   log-grafana:
     image: 'grafana/grafana:latest'
     ports:
-      - '127.0.0.1:3000:3000'
+      - '3000:3000'  # grafana web-ui
     volumes:
       - '/etc/shieldwall/log_grafana.ini:/etc/grafana/grafana.ini'
       - '/var/lib/shieldwall/log/grafana:/var/lib/grafana'
+      - '/etc/shieldwall/log_grafana.yml:/etc/grafana/provisioning/datasources/ds.yaml'
     environment:
       - 'GF_PATHS_CONFIG=/etc/grafana/grafana.ini'
       - 'GF_PATHS_DATA=/var/lib/grafana'
       - 'GF_PATHS_PROVISIONING=/etc/grafana/provisioning'
       - 'GF_AUTH_ANONYMOUS_ENABLED=true'
       - 'GF_AUTH_ANONYMOUS_ORG_ROLE=Admin'
-    entrypoint:
-      - sh
-      - -euc
-      - |
-        mkdir -p /etc/grafana/provisioning/datasources
-        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
-        apiVersion: 1
-        datasources:
-        - name: Loki
-          type: loki
-          access: proxy
-          orgId: 1
-          url: http://log-loki:3100
-          basicAuth: false
-          isDefault: true
-          version: 1
-          editable: false
-        EOF
-        /run.sh
     networks:
       - loki
     restart: 'always'

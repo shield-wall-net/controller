@@ -1,0 +1,15 @@
+---
+
+# /etc/shieldwall/log_grafana.yml
+
+apiVersion: 1
+datasources:
+  - name: 'ShieldWall (Loki)'
+    type: 'loki'
+    access: 'proxy'
+    orgId: 1
+    url: 'http://log-loki:3100'
+    basicAuth: false
+    isDefault: true
+    version: 1
+    editable: false

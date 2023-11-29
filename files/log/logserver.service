@@ -1,0 +1,25 @@
+# {{ shieldwall_managed }}
+
+[Unit]
+Description=ShieldWall firewall - Logserver service
+Documentation=https://wiki.shield-wall.net
+After=network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/docker-compose -f /etc/shieldwall/logserver.yml up
+ExecStop=/usr/local/bin/docker-compose -f /etc/shieldwall/logserver.yml down
+
+User=root
+Group=root
+Restart=on-failure
+RestartSec=30s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=shieldwall_logserver
+
+[Install]
+WantedBy=multi-user.target

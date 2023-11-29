@@ -94,7 +94,7 @@ table inet managed {
 
     ct state established,related accept
 
-    log prefix "NFTables default-drop input: "
+    log prefix "NFTables DROP input default: "
 
   }
 
@@ -107,7 +107,7 @@ table inet managed {
 
     ct state established,related accept
 
-    log prefix "NFTables default-drop output: "
+    log prefix "NFTables DROP output default: "
 
   }
 
@@ -120,7 +120,7 @@ table inet managed {
 
     ct state established,related accept
 
-    log prefix "NFTables default-drop forward: "
+    log prefix "NFTables DROP forward default: "
 
   }
 
@@ -146,12 +146,12 @@ table inet managed {
   chain security_input {
     type filter hook input priority -10; policy accept;
 
-    ct state invalid log prefix "NFTables box-drop input invalid states: " drop
-    ip frag-off & 0x1fff != 0 counter log prefix "NFTables box-drop input IP fragments:  " drop
-    tcp flags & (fin|syn|rst|psh|ack|urg) == fin|syn|rst|psh|ack|urg counter log prefix "NFTables box-drop input TCP XMAS: " drop
-    tcp flags & (fin|syn|rst|psh|ack|urg) == 0x0 counter log prefix "NFTables box-drop input TCP NULL: " drop
-    tcp flags syn tcp option maxseg size 1-536 counter log prefix "NFTables box-drop input TCP MSS: " drop
-    tcp flags & (fin|syn|rst|ack) != syn ct state new counter log prefix "NFTables box-drop input TCP SYN CT NEW: " drop
+    ct state invalid log prefix "NFTables BOX-DROP input invalid states: " drop
+    ip frag-off & 0x1fff != 0 counter log prefix "NFTables BOX-DROP input IP fragments:  " drop
+    tcp flags & (fin|syn|rst|psh|ack|urg) == fin|syn|rst|psh|ack|urg counter log prefix "NFTables BOX-DROP input TCP XMAS: " drop
+    tcp flags & (fin|syn|rst|psh|ack|urg) == 0x0 counter log prefix "NFTables BOX-DROP input TCP NULL: " drop
+    tcp flags syn tcp option maxseg size 1-536 counter log prefix "NFTables BOX-DROP input TCP MSS: " drop
+    tcp flags & (fin|syn|rst|ack) != syn ct state new counter log prefix "NFTables BOX-DROP input TCP SYN CT NEW: " drop
 
   }
 
@@ -160,9 +160,9 @@ table inet managed {
     iifname "lo" accept
 
     # allow controller to connect to the box (failsafe)
-    tcp dport $PORT_BOX_MGMT ip saddr $IP4_CONTROLLER ct state new log prefix "NFTables box-accept controller management: "
+    tcp dport $PORT_BOX_MGMT ip saddr $IP4_CONTROLLER ct state new log prefix "NFTables BOX-ACCEPT controller management: "
     tcp dport $PORT_BOX_MGMT ip saddr $IP4_CONTROLLER accept
-    tcp dport $PORT_BOX_MGMT ip6 saddr $IP6_CONTROLLER ct state new log prefix "NFTables box-accept controller management: "
+    tcp dport $PORT_BOX_MGMT ip6 saddr $IP6_CONTROLLER ct state new log prefix "NFTables BOX-ACCEPT controller management: "
     tcp dport $PORT_BOX_MGMT ip6 saddr $IP6_CONTROLLER accept
 
     # allow controller to ping/traceroute the box
@@ -181,9 +181,9 @@ table inet managed {
     oifname "lo" accept
 
     # allow communication with controller
-    tcp dport $PORT_CONTROLLER ip daddr $IP4_CONTROLLER ct state new log prefix "NFTables box-accept output controller: "
+    tcp dport $PORT_CONTROLLER ip daddr $IP4_CONTROLLER ct state new log prefix "NFTables BOX-ACCEPT output controller: "
     tcp dport $PORT_CONTROLLER ip daddr $IP4_CONTROLLER accept
-    tcp dport $PORT_CONTROLLER ip6 daddr $IP6_CONTROLLER ct state new log prefix "NFTables box-accept output controller: "
+    tcp dport $PORT_CONTROLLER ip6 daddr $IP6_CONTROLLER ct state new log prefix "NFTables BOX-ACCEPT output controller: "
     tcp dport $PORT_CONTROLLER ip6 daddr $IP6_CONTROLLER accept
 
     # allow dnat to proxy
@@ -201,17 +201,17 @@ table inet managed {
 
     # todo: limit destination to configured dns/ntp servers
     # allow dns
-    tcp dport { 53, 853 } ct state new log prefix "NFTables box-accept output DNS: "
+    tcp dport { 53, 853 } ct state new log prefix "NFTables BOX-ACCEPT output DNS: "
     tcp dport { 53, 853 } accept
-    udp dport 53 log prefix "NFTables box-accept output DNS: " accept
+    udp dport 53 log prefix "NFTables BOX-ACCEPT output DNS: " accept
 
     # allow ntp
-    tcp dport 123 ct state new log prefix "NFTables box-accept output NTP: "
+    tcp dport 123 ct state new log prefix "NFTables BOX-ACCEPT output NTP: "
     tcp dport 123 accept
-    udp dport 123 log prefix "NFTables box-accept output NTP: " accept
+    udp dport 123 log prefix "NFTables BOX-ACCEPT output NTP: " accept
 
     # allow system traffic (updates, and so on); limited by proxy
-    tcp dport { 80, 443 } ct state new log prefix "NFTables box-accept output HTTP+S: "
+    tcp dport { 80, 443 } ct state new log prefix "NFTables BOX-ACCEPT output HTTP+S: "
     tcp dport { 80, 443 } accept
 
   }
@@ -224,7 +224,7 @@ table inet managed {
     ip6 nexthdr icmpv6 ip6 hoplimit 255 icmpv6 type $IP6_ICMP_ROUTE accept
 
     # allow system traffic (updates, and so on)
-    ip saddr $IP4_NET_DOCKER tcp dport { 80, 443 } ct state new log prefix "NFTables box-accept output HTTP+S: "
+    ip saddr $IP4_NET_DOCKER tcp dport { 80, 443 } ct state new log prefix "NFTables BOX-ACCEPT output HTTP+S: "
     ip saddr $IP4_NET_DOCKER tcp dport { 80, 443 } accept
 
     # allow dnat to proxy

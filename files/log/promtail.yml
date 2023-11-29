@@ -1,28 +1,32 @@
 ---
 
 # {{ shieldwall_managed }}
-# see: https://grafana.com/docs/loki/latest/send-data/promtail/configuration/#syslog
+# see:
+#   https://grafana.com/docs/loki/latest/send-data/promtail/configuration/#syslog
+#   https://github.com/grafana/loki/blob/main/clients/cmd/promtail/promtail-docker-config.yaml
+#   https://grafana.com/docs/loki/latest/send-data/promtail/scraping/#syslog-receiver
 
 server:
-  http_listen_port: 9081
+  http_listen_port: 9080
   grpc_listen_port: 0
+  log_level: 'warn'
 
 positions:
   filename: '/var/spool/promtail-syslog-positions.yml'
 
 clients:
-  - url: 'http://127.0.0.1:3100/loki/api/v1/push'
+  - url: 'http://log-loki:3100/loki/api/v1/push'
 
 scrape_configs:
   - job_name: 'ShieldWallBoxes'
     syslog:
       listen_address: '0.0.0.0:10515'
       listen_protocol: 'tcp'
+      idle_timeout: 60s
+      label_structured_data: yes
       labels:
-        job: 'boxes'
+        job: 'shieldwall'
     relabel_configs:
-      - source_labels: ['__syslog_connection_ip_address']
-        target_label: 'source'
       - source_labels: ['__syslog_message_hostname']
         target_label: 'hostname'
       - source_labels: ['__syslog_message_severity']
@@ -34,20 +38,52 @@ scrape_configs:
       - source_labels: ['__syslog_message_msg_id']
         target_label: 'syslog_id'
 
-  - job_name: 'ShieldWallController'
-    syslog:
-      listen_address: '0.0.0.0:10516'
-      listen_protocol: 'tcp'
-      labels:
-        job: 'controller'
-    relabel_configs:
-      - source_labels: ['__syslog_message_hostname']
-        target_label: 'hostname'
-      - source_labels: ['__syslog_message_severity']
-        target_label: 'level'
-      - source_labels: ['__syslog_message_facility']
-        target_label: 'facility'
-      - source_labels: ['__syslog_message_app_name']
-        target_label: 'application'
-      - source_labels: ['__syslog_message_msg_id']
-        target_label: 'syslog_id'
+    # see: https://grafana.com/docs/loki/latest/send-data/promtail/stages/
+    pipeline_stages:
+      - match:
+          selector: '{application="kernel"} |= "NFTables"'
+          stages:
+            - regex:
+                expression: 'NFTables\s(?P<packet_action>.*?)\s(?P<packet_chain>.*?)\s(?P<packet_comment>.*?):'
+            - regex:
+                expression: '\sIN=(?P<packet_if_in>.*?)\s'
+            - regex:
+                expression: '\sIN=[a-zA-Z0-9]*?\.(?P<packet_vlan_in>[0-9]{1,4})\s'
+            - regex:
+                expression: '\sOUT=(?P<packet_if_out>.*?)\s'
+            - regex:
+                expression: '\sOUT=[a-zA-Z0-9]*?\.(?P<packet_vlan_out>[0-9]{1,4})\s'
+            - regex:
+                expression: '\sSRC=(?P<packet_ip_src>.*?)\s'
+            - regex:
+                expression: '\sDST=(?P<packet_ip_dst>.*?)\s'
+            - regex:
+                expression: '\sLEN=(?P<packet_len>.*?)\s'
+            - regex:
+                expression: '\sPROTO=(?P<packet_proto>.*?)\s'
+            - regex:
+                expression: '\sSPT=(?P<packet_port_src>.*?)\s'
+            - regex:
+                expression: '\sDPT=(?P<packet_port_dst>.*?)\s'
+            - regex:
+                expression: '\sWINDOW=(?P<packet_window>.*?)\s'
+            - regex:
+                expression: 'PROTO=TCP.*RES=.*?\s(.*?)\s'
+            - regex:
+                expression: '\sMAC=(?P<packet_mac>.*?)\s'
+            - labels:
+                packet_action:
+                packet_comment:
+                packet_if_in:
+                packet_if_out:
+                packet_vlan_in:
+                packet_vlan_out:
+                packet_ip_src:
+                packet_ip_dst:
+                packet_len:
+                packet_proto:
+                packet_port_src:
+                packet_port_dst:
+                packet_windows:
+                packet_tcp_flag:
+                packet_mac:

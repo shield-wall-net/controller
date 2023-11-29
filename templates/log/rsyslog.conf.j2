@@ -2,7 +2,7 @@
 
 *.* action(
     type="omfwd"
-    target="{{ syslog.controller }}"
+    target="controller.shieldwall"
     StreamDriverPermittedPeers="{{ syslog.controller }}"
     Port="{{ syslog.controller_port }}"
     protocol="tcp"
