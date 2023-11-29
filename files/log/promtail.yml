@@ -7,7 +7,7 @@
 #   https://grafana.com/docs/loki/latest/send-data/promtail/scraping/#syslog-receiver
 
 server:
-  http_listen_port: 9080
+  http_listen_port: 3001
   grpc_listen_port: 0
   log_level: 'warn'
 
@@ -20,7 +20,7 @@ clients:
 scrape_configs:
   - job_name: 'ShieldWallBoxes'
     syslog:
-      listen_address: '0.0.0.0:10515'
+      listen_address: '0.0.0.0:1514'
       listen_protocol: 'tcp'
       idle_timeout: 60s
       label_structured_data: yes

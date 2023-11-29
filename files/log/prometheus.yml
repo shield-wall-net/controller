@@ -1,0 +1,25 @@
+---
+
+# see: https://prometheus.io/docs/prometheus/latest/configuration/configuration/
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Alertmanager configuration
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           # - alertmanager:9093
+
+scrape_configs:
+  - job_name: 'shieldwall_boxes'
+    proxy_url: 'http://log-prometheus-proxy:8080/'
+    params:
+      _scheme: ['https']
+    static_configs:
+      # todo: auto-generate
+      - targets: ['<UUID>.box.shieldwall:9100']
+        labels:
+          hostname: '<PRETTY-NAME>'
