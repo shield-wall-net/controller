@@ -4,8 +4,11 @@
 #   install docker-ce
 #   install docker-compose
 #   useradd --uid 472 grafana --system
+#   useradd --uid 10001 loki
 #   mkdir -p /var/lib/shieldwall/log/grafana/
+#   mkdir -p /var/lib/shieldwall/log/loki/
 #   chown grafana:grafana /var/lib/shieldwall/log/grafana/
+#   chown loki:loki /var/lib/shieldwall/log/loki/
 
 # todo: authentication
 
@@ -27,6 +30,7 @@ services:
       - '127.0.0.1:3100:3100'  # log input
     volumes:
       - '/etc/shieldwall/log_loki.yml:/etc/loki/local-config.yaml'
+      - '/var/lib/shieldwall/log/loki:/loki'
     command: '-config.file=/etc/loki/local-config.yaml'
     networks:
       - loki

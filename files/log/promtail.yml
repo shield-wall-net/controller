@@ -27,6 +27,8 @@ scrape_configs:
       labels:
         job: 'shieldwall'
     relabel_configs:
+      - source_labels: ['__syslog_connection_hostname']
+        target_label: 'controller_hostname'
       - source_labels: ['__syslog_message_hostname']
         target_label: 'hostname'
       - source_labels: ['__syslog_message_severity']
@@ -41,7 +43,7 @@ scrape_configs:
     # see: https://grafana.com/docs/loki/latest/send-data/promtail/stages/
     pipeline_stages:
       - match:
-          selector: '{application="kernel"} |= "NFTables"'
+          selector: '{facility="kern"} |= "NFTables"'
           stages:
             - regex:
                 expression: 'NFTables\s(?P<packet_action>.*?)\s(?P<packet_chain>.*?)\s(?P<packet_comment>.*?):'
@@ -71,8 +73,11 @@ scrape_configs:
                 expression: 'PROTO=TCP.*RES=.*?\s(.*?)\s'
             - regex:
                 expression: '\sMAC=(?P<packet_mac>.*?)\s'
+            - static_labels:
+                component: 'Packet filter'
             - labels:
                 packet_action:
+                packet_chain:
                 packet_comment:
                 packet_if_in:
                 packet_if_out:
@@ -87,3 +92,45 @@ scrape_configs:
                 packet_windows:
                 packet_tcp_flag:
                 packet_mac:
+
+      - match:
+          selector: '{application="squid", facility="local2"}'
+          stages:
+            - static_labels:
+                component: 'Proxy'
+                category: 'Request'
+
+      - match:
+          selector: '{application="squid", facility!="local2"}'
+          stages:
+            - static_labels:
+                component: 'Proxy'
+                category: 'Service'
+
+      - match:
+          selector: '{application="shieldwall_box"}'
+          stages:
+            - static_labels:
+                component: 'ShieldWall System'
+                category: 'Box Service'
+
+      - match:
+          selector: '{application="shieldwall_box_update"}'
+          stages:
+            - static_labels:
+                component: 'ShieldWall System'
+                category: 'Box Update'
+
+      - match:
+          selector: '{application="shieldwall_controller"}'
+          stages:
+            - static_labels:
+                component: 'ShieldWall System'
+                category: 'Controller Service'
+
+      - match:
+          selector: '{application="shieldwall_controller_update"}'
+          stages:
+            - static_labels:
+                component: 'ShieldWall System'
+                category: 'Controller Update'
