@@ -10,8 +10,6 @@ networks:
     external: false
     ipam:
       driver: default
-      config:
-      - subnet: '192.168.0.0/29'
 
 services:
   log-grafana:
@@ -37,6 +35,7 @@ services:
     volumes:
       - '/var/log/shieldwall:/var/log/shieldwall'
       - '/etc/shieldwall/log_promtail.yml:/etc/promtail/config.yml'
+      - '/etc/geoip:/etc/geoip'
     command: '-config.file=/etc/promtail/config.yml'
     ports:
       - '127.0.0.1:1514:1514'  # syslog

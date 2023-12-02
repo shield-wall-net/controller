@@ -36,6 +36,13 @@ function new_service() {
   systemctl restart "$1.service"
 }
 
+function purge_pkg() {
+  # shellcheck disable=SC2086
+  apt -y remove $1 || true
+  # shellcheck disable=SC2086
+  apt -y purge $1 || true
+}
+
 CTRL_VERSION='latest'
 USER='shieldwall'
 USER_ID='2000'
@@ -67,12 +74,14 @@ apt update
 apt -y --upgrade install openssl python3 wget gpg lsb-release apt-transport-https ca-certificates gnupg curl net-tools dnsutils zip ncdu man
 
 log 'INSTALLING PACKET-FILTER'
-apt -y remove ufw firewalld* arptables ebtables xtables*
-apt -y purge ufw firewalld* arptables ebtables xtables*
+purge_pkg 'ufw'
+purge_pkg 'firewalld*'
+purge_pkg 'arptables'
+purge_pkg 'ebtables'
+purge_pkg 'xtables*'
 if ! [ -f '/etc/systemd/system/docker.service.d/override.conf' ]
 then
-  apt -y remove iptables*
-  apt -y purge iptables*
+  purge_pkg 'iptables*'
 fi
 apt -y --upgrade install nftables
 
@@ -86,9 +95,10 @@ wget "https://codeload.github.com/shield-wall-net/controller/zip/refs/heads/${CT
 unzip 'shieldwall_controller.zip'
 
 log 'CREATING SERVICE-USER & DIRECTORIES'
-#DISTRO=$(lsb_release -i -s | tr '[:upper:]' '[:lower:]')
-CODENAME=$(lsb_release -c -s | tr '[:upper:]' '[:lower:]')
-CPU_ARCH=$(uname -i)
+DISTRO="$(lsb_release -i -s | tr '[:upper:]' '[:lower:]')"
+CODENAME="$(lsb_release -c -s | tr '[:upper:]' '[:lower:]')"
+CPU_ARCH="$(uname -i)"
+IS_CONTAINER="$(grep -c 'lxc|docker' < '/proc/self/mountinfo' || echo '0')"
 
 if [[ "$CPU_ARCH" == 'unknown' ]] || [[ "$CPU_ARCH" == 'x86_64' ]]
 then
@@ -133,19 +143,27 @@ chmod 750 '/etc/ssl/private'
 chmod 640 '/etc/ssl/private/shieldwall.controller.key'
 
 log 'UPDATING DEFAULT APT-REPOSITORIES'
-rm '/etc/apt/sources.list'
+rm -f '/etc/apt/sources.list'
 cp "${DIR_SETUP}/files/apt/sources.list" '/etc/apt/sources.list'
 sed -i "s/CODENAME/$CODENAME/g" '/etc/apt/sources.list'
+apt update
 
 log 'ADDING FIREWALL BASE CONFIG'
-modprobe nft_ct
-modprobe nft_log
-modprobe nft_nat
-modprobe nft_redir
-modprobe nft_limit
-modprobe nft_quota
-modprobe nft_connlimit
-modprobe nft_reject
+if [[ "$IS_CONTAINER" == "0" ]]
+then
+  modprobe 'nft_ct'
+  modprobe 'nft_log'
+  modprobe 'nft_nat'
+  modprobe 'nft_redir'
+  modprobe 'nft_limit'
+  modprobe 'nft_quota'
+  modprobe 'nft_connlimit'
+  modprobe 'nft_reject'
+  mkdir -p '/var/log/ulog'
+  touch '/var/log/ulog/syslogemu.log'
+else
+  apt install ulogd2
+fi
 
 mkdir -p '/etc/nftables.d/' '/etc/systemd/system/nftables.service.d/'
 cp "${DIR_SETUP}/files/packet_filter/override.conf" '/etc/systemd/system/nftables.service.d/override.conf'
@@ -153,6 +171,10 @@ chown "$USER" '/etc/systemd/system/nftables.service.d/override.conf'
 
 cp "${DIR_SETUP}/files/packet_filter/main.conf" '/etc/nftables.conf'
 cp "${DIR_SETUP}/files/packet_filter/nftables.conf" '/etc/nftables.d/managed.conf'
+if [[ "$IS_CONTAINER" != "0" ]]
+then
+  sed -i 's/\(log prefix ".*"\)/\1 group 0/' '/etc/nftables.d/managed.conf'
+fi
 
 chmod 750 '/etc/nftables.d/'
 chmod 640 '/etc/nftables.conf' '/etc/nftables.d/managed.conf'
@@ -188,12 +210,16 @@ new_service 'docker'
 
 log 'METRIC CONFIG (PROMETHEUS)'
 
+PROM_PROXY_VERSION='1.0'
+
 if ! [ -f '/usr/local/bin/prometheus_proxy' ]
 then
   wget "https://github.com/shield-wall-net/Prometheus-Proxy/releases/download/${PROM_PROXY_VERSION}/prometheus-proxy-linux-${CPU_ARCH}-CGO0.tar.gz" -O '/tmp/prometheus_proxy.tar.gz'
-  tar -xzf '/tmp/prometheus_proxy.tar.gz' -C '/tmp/' --strip-components=1
+  tar -xzf '/tmp/prometheus_proxy.tar.gz' -C '/tmp/'
   mv "/tmp/prometheus-proxy-linux-${CPU_ARCH}-CGO0" '/usr/local/bin/prometheus_proxy'
 fi
+
+chown "$USER" '/usr/local/bin/prometheus_proxy'
 
 log 'LOGGING CONFIG'
 cp "${DIR_SETUP}/files/log/rsyslog.conf" '/etc/rsyslog.d/shieldwall.conf'

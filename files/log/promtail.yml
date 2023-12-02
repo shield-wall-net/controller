@@ -75,6 +75,21 @@ scrape_configs:
                 expression: '\sMAC=(?P<packet_mac>.*?)\s'
             - static_labels:
                 component: 'Packet filter'
+            # todo: opt-in or ignore if geoip-dbs do not exist
+            - geoip:
+                db: "/etc/geoip/asn.mmdb"
+                source: "packet_ip_src"
+                db_type: "asn"
+            - geoip:
+                db: "/etc/geoip/city.mmdb"
+                source: "packet_ip_src"
+                db_type: "city"
+            - labeldrop:
+                - 'geoip_continent_name'
+                - 'geoip_postal_code'
+                - 'geoip_subdivision_code'
+                - 'geoip_subdivision_name'
+                - 'geoip_timezone'
             - labels:
                 packet_action:
                 packet_chain:

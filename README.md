@@ -22,11 +22,12 @@ Controllers are self-hosted.
   - [ ] Patch/Package management
   - [ ] Configuration rollout
 - [ ] Logging
-  - [ ] Boxes => Rsyslog-TLS => Controller => [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/) => [Grafana Loki](https://grafana.com/docs/loki/latest/get-started/overview)
+  - [x] Boxes => Rsyslog-TLS => Controller => [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/) => [Grafana Loki](https://grafana.com/docs/loki/latest/get-started/overview)
   - [ ] [Visualize/Log Analysis](https://grafana.com/docs/loki/latest/visualize/grafana/)
+    - [ ] GeoIP Integration
+    - [ ] Collection of Dashboards
   - [ ] [Alerting](https://grafana.com/docs/loki/latest/alert/)
   - [ ] NetFlow collection using SoftFlowd, [GoFlow2](https://github.com/netsampler/goflow2) and Loki/Grafana
-  - [ ] Collection of Dashboards
 
 ----
 
