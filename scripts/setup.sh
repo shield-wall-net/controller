@@ -51,7 +51,7 @@ log 'SETTING DEFAULT LANGUAGE'
 export LANG="en_US.UTF-8"
 export LANGUAGE="en_US.UTF-8"
 export LC_ALL="en_US.UTF-8"
-update-locale LANG=en_US.UTF-8
+update-locale LANG=en_US.UTF-8 || true
 dpkg-reconfigure --frontend=noninteractive locales
 
 log 'INSTALLING TIMESYNC'
