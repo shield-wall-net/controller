@@ -25,6 +25,8 @@ Controllers are self-hosted.
   - [ ] Boxes => Rsyslog-TLS => Controller => [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/) => [Grafana Loki](https://grafana.com/docs/loki/latest/get-started/overview)
   - [ ] [Visualize/Log Analysis](https://grafana.com/docs/loki/latest/visualize/grafana/)
   - [ ] [Alerting](https://grafana.com/docs/loki/latest/alert/)
+  - [ ] NetFlow collection using SoftFlowd, [GoFlow2](https://github.com/netsampler/goflow2) and Loki/Grafana
+  - [ ] Collection of Dashboards
 
 ----
 
@@ -47,3 +49,7 @@ vg0
 - lv2 => ext4 /var (min 20 GB)
 - lv3 => swap (min 1 GB)
 ```
+
+### Why Debian?
+
+The config can be ported later on - but we need to start somewhere.

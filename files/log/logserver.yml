@@ -1,18 +1,5 @@
 ---
 
-# todo: on host-system
-#   install docker-ce
-#   install docker-compose
-#   useradd --uid 472 grafana --system
-#   useradd --uid 10001 loki
-#   mkdir -p /var/lib/shieldwall/log/grafana/
-#   mkdir -p /var/lib/shieldwall/log/loki/
-#   chown grafana:grafana /var/lib/shieldwall/log/grafana/
-#   chown loki:loki /var/lib/shieldwall/log/loki/
-#   pre-build prometheus-pushproxy (https://github.com/prometheus-community/PushProx)
-#   copy proxy to: /usr/local/bin/prometheus_pushproxy
-#   (also deploy proxy-client on boxes)
-
 # todo: authentication
 
 version: '3'
@@ -87,7 +74,7 @@ services:
       - '/usr/local/bin/:/usr/local/bin/'
     ports:
       - '900:8080'
-    entrypoint: '/usr/local/bin/prometheus_pushproxy --log.level=warn'
+    entrypoint: '/usr/local/bin/prometheus_proxy --log.level=warn'
     networks:
       - logserver
     restart: 'always'
