@@ -137,6 +137,28 @@ rm '/etc/apt/sources.list'
 cp "${DIR_SETUP}/files/apt/sources.list" '/etc/apt/sources.list'
 sed -i "s/CODENAME/$CODENAME/g" '/etc/apt/sources.list'
 
+log 'ADDING FIREWALL BASE CONFIG'
+modprobe nft_ct
+modprobe nft_log
+modprobe nft_nat
+modprobe nft_redir
+modprobe nft_limit
+modprobe nft_quota
+modprobe nft_connlimit
+modprobe nft_reject
+
+mkdir -p '/etc/nftables.d/' '/etc/systemd/system/nftables.service.d/'
+cp "${DIR_SETUP}/files/packet_filter/override.conf" '/etc/systemd/system/nftables.service.d/override.conf'
+chown "$USER" '/etc/systemd/system/nftables.service.d/override.conf'
+
+cp "${DIR_SETUP}/files/packet_filter/main.conf" '/etc/nftables.conf'
+cp "${DIR_SETUP}/files/packet_filter/nftables.conf" '/etc/nftables.d/managed.conf'
+
+chmod 750 '/etc/nftables.d/'
+chmod 640 '/etc/nftables.conf' '/etc/nftables.d/managed.conf'
+chown -R "$USER":"$USER" /etc/nftables*
+new_service 'nftables'
+
 log 'INSTALLING DOCKER'
 DOCKER_GPG_FILE='/usr/share/keyrings/docker-archive-keyring.gpg'
 DOCKER_REPO_FILE='/etc/apt/sources.list.d/docker.list'
