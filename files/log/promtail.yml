@@ -45,6 +45,9 @@ scrape_configs:
       - match:
           selector: '{facility="kern"} |= "NFTables"'
           stages:
+            - static_labels:
+                component: 'Packet filter'
+
             - regex:
                 expression: 'NFTables\s(?P<packet_action>.*?)\s(?P<packet_chain>.*?)\s(?P<packet_comment>.*?):'
             - regex:
@@ -60,36 +63,20 @@ scrape_configs:
             - regex:
                 expression: '\sDST=(?P<packet_ip_dst>.*?)\s'
             - regex:
-                expression: '\sLEN=(?P<packet_len>.*?)\s'
-            - regex:
                 expression: '\sPROTO=(?P<packet_proto>.*?)\s'
             - regex:
                 expression: '\sSPT=(?P<packet_port_src>.*?)\s'
             - regex:
                 expression: '\sDPT=(?P<packet_port_dst>.*?)\s'
             - regex:
-                expression: '\sWINDOW=(?P<packet_window>.*?)\s'
-            - regex:
-                expression: 'PROTO=TCP.*RES=.*?\s(.*?)\s'
-            - regex:
-                expression: '\sMAC=(?P<packet_mac>.*?)\s'
-            - static_labels:
-                component: 'Packet filter'
-            # todo: opt-in or ignore if geoip-dbs do not exist
-            - geoip:
-                db: "/etc/geoip/asn.mmdb"
-                source: "packet_ip_src"
-                db_type: "asn"
-            - geoip:
-                db: "/etc/geoip/city.mmdb"
-                source: "packet_ip_src"
-                db_type: "city"
-            - labeldrop:
-                - 'geoip_continent_name'
-                - 'geoip_postal_code'
-                - 'geoip_subdivision_code'
-                - 'geoip_subdivision_name'
-                - 'geoip_timezone'
+                expression: 'PROTO=TCP.*RES=.*?\s(?P<packet_tcp_flags>.*?)\s'
+            # - regex:
+            #     expression: '\sLEN=(?P<packet_len>.*?)\s'
+            # - regex:
+            #     expression: '\sWINDOW=(?P<packet_window>.*?)\s'
+            # - regex:
+            #     expression: '\sMAC=(?P<packet_mac>.*?)\s'
+
             - labels:
                 packet_action:
                 packet_chain:
@@ -100,13 +87,58 @@ scrape_configs:
                 packet_vlan_out:
                 packet_ip_src:
                 packet_ip_dst:
-                packet_len:
                 packet_proto:
                 packet_port_src:
                 packet_port_dst:
-                packet_windows:
-                packet_tcp_flag:
-                packet_mac:
+                packet_tcp_flags:
+                # packet_len:
+                # packet_window:
+                # packet_mac:
+
+            # todo: opt-in or ignore if geoip-dbs do not exist
+            - geoip:
+                db: "/etc/geoip/asn.mmdb"
+                source: "packet_ip_src"
+                db_type: "asn"
+            # - template:
+            #     source: 'packet_geoip_src_asn'
+            #     template: '{{or .geoip_autonomous_system_number "-"}}'
+            # - template:
+            #     source: 'packet_geoip_src_as_name'
+            #     template: '{{or .geoip_autonomous_system_organization "-"}}'
+            # - labels:
+            #     packet_geoip_src_asn:
+            # - labeldrop:
+            #     - 'geoip_autonomous_system_number'
+            #     - 'geoip_autonomous_system_organization'
+
+            - geoip:
+                db: "/etc/geoip/city.mmdb"
+                source: "packet_ip_src"
+                db_type: "city"
+            # - template:
+            #     source: 'packet_geoip_src_continent'
+            #     template: '{{or .geoip_continent_code "-"}}'
+            # - template:
+            #     source: 'packet_geoip_src_country_name'
+            #     template: '{{or .geoip_country_name "-"}}'
+            # - template:
+            #     source: 'packet_geoip_src_location_y'
+            #     template: '{{or .geoip_location_latitude "-"}}'
+            # - template:
+            #     source: 'packet_geoip_src_location_x'
+            #     template: '{{or .geoip_location_longitude "-"}}'
+            - labeldrop:
+                # - 'geoip_continent_code'
+                - 'geoip_continent_name'
+                # - 'geoip_country_name'
+                # - 'geoip_location_latitude'
+                # - 'geoip_location_longitude'
+                - 'geoip_city_name'
+                - 'geoip_postal_code'
+                - 'geoip_subdivision_code'
+                - 'geoip_subdivision_name'
+                - 'geoip_timezone'
 
       - match:
           selector: '{application="squid", facility="local2"}'
@@ -149,3 +181,75 @@ scrape_configs:
             - static_labels:
                 component: 'ShieldWall System'
                 category: 'Controller Update'
+
+      - match:
+          selector: '{application="netflow"}'
+          stages:
+            - static_labels:
+                component: 'NetFlow'
+                category: 'Service'
+
+      - match:
+          selector: '{application="netflow_data"}'
+          stages:
+            - static_labels:
+                component: 'NetFlow'
+                category: 'Data'
+            - json:
+                expressions:
+                  packet_time: 'TimeReceived'
+                  packet_time_start: 'TimeFlowStartMs'
+                  packet_time_end: 'TimeFlowEndMs'
+                  packet_if_in: 'InIf'
+                  packet_if_out: 'OutIf'
+                  packet_vlan_in: 'SrcVlan'
+                  packet_vlan_out: 'DestVlan'
+                  packet_ip_src: 'SrcAddr'
+                  packet_ip_dst: 'DstAddr'
+                  packet_size: 'Bytes'
+                  packet_count: 'Packets'
+                  packet_proto: 'Proto'
+                  packet_port_src: 'SrcPort'
+                  packet_port_dst: 'DstPort'
+                  packet_tcp_flags: 'TcpFlags'
+                  packet_icmp_type: 'IcmpType'
+                  packet_icmp_code: 'IcmpCode'
+                  packet_next_hop: 'NextHop'
+
+            - labels:
+                packet_time:
+                packet_time_start:
+                packet_time_end:
+                packet_if_in:
+                packet_if_out:
+                packet_vlan_in:
+                packet_vlan_out:
+                packet_ip_src:
+                packet_ip_dst:
+                packet_size:
+                packet_count:
+                packet_proto:
+                packet_port_src:
+                packet_port_dst:
+                packet_tcp_flags:
+                packet_icmp_type:
+                packet_icmp_code:
+                packet_next_hop:
+
+            # todo: opt-in or ignore if geoip-dbs do not exist
+            - geoip:
+                db: "/etc/geoip/asn.mmdb"
+                source: "packet_ip_src"
+                db_type: "asn"
+
+            - geoip:
+                db: "/etc/geoip/city.mmdb"
+                source: "packet_ip_src"
+                db_type: "city"
+            - labeldrop:
+                - 'geoip_continent_code'
+                - 'geoip_city_name'
+                - 'geoip_postal_code'
+                - 'geoip_subdivision_code'
+                - 'geoip_subdivision_name'
+                - 'geoip_timezone'

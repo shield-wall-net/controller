@@ -105,6 +105,20 @@ then
   CPU_ARCH='amd64'
 fi
 
+function download_latest_github_release_filter() {
+  gh_user="$1"
+  gh_repo="$2"
+  out_file="$3"
+  filter="$4"
+  filter_exclude="$5"
+  url="$(curl -s "https://api.github.com/repos/${gh_user}/${gh_repo}/releases/latest" | grep 'download_url' | grep "linux-${CPU_ARCH}" | grep "$filter" | grep -Ev "$filter_exclude" | head -n 1 | cut -d '"' -f 4)"
+  wget -4 "$url" -O "$out_file"
+}
+
+function download_latest_github_release() {
+  download_latest_github_release_filter "$1" "$2" "$3" '' '$%&'
+}
+
 if ! grep -q "$USER" < '/etc/passwd'
 then
   useradd "$USER" --shell '/bin/bash' --home-dir "$DIR_HOME" --create-home --uid "$USER_ID"
@@ -119,9 +133,9 @@ fi
 
 mkdir -p "$DIR_LIB" "$DIR_SCRIPT" "$DIR_LOG" "$DIR_CNF"
 chown "$USER" "$DIR_LIB" "$DIR_CNF"
-chown "$USER":"$USER" "$DIR_SCRIPT" "$DIR_LOG"
-chmod 750 "$DIR_LIB" "$DIR_SCRIPT" "$DIR_CNF"
-chmod 770 "$DIR_LOG"
+chown "$USER":"$USER" "$DIR_SCRIPT"
+chown 'root':'adm' "$DIR_LOG"
+chmod 750 "$DIR_LIB" "$DIR_SCRIPT" "$DIR_CNF" "$DIR_LOG"
 
 touch "${DIR_CNF}/update.env"
 chown "$USER" "${DIR_CNF}/update.env"
@@ -163,10 +177,11 @@ then
   touch '/var/log/ulog/syslogemu.log'
 else
   apt install ulogd2
+  rm '/etc/logrotate.d/ulogd2'
 fi
 
 mkdir -p '/etc/nftables.d/' '/etc/systemd/system/nftables.service.d/'
-cp "${DIR_SETUP}/files/packet_filter/override.conf" '/etc/systemd/system/nftables.service.d/override.conf'
+cp "${DIR_SETUP}/files/packet_filter/service_override.conf" '/etc/systemd/system/nftables.service.d/override.conf'
 chown "$USER" '/etc/systemd/system/nftables.service.d/override.conf'
 
 cp "${DIR_SETUP}/files/packet_filter/main.conf" '/etc/nftables.conf'
@@ -204,17 +219,15 @@ apt update
 apt -y install docker-ce containerd.io docker-compose-plugin
 
 mkdir -p '/etc/systemd/system/docker.service.d/'
-cp "${DIR_SETUP}/files/docker.override.conf" '/etc/systemd/system/docker.service.d/override.conf'
+cp "${DIR_SETUP}/files/docker_service_override.conf" '/etc/systemd/system/docker.service.d/override.conf'
 chown "$USER" '/etc/systemd/system/docker.service.d/override.conf'
 new_service 'docker'
 
 log 'METRIC CONFIG (PROMETHEUS)'
 
-PROM_PROXY_VERSION='1.0'
-
 if ! [ -f '/usr/local/bin/prometheus_proxy' ]
 then
-  wget "https://github.com/shield-wall-net/Prometheus-Proxy/releases/download/${PROM_PROXY_VERSION}/prometheus-proxy-linux-${CPU_ARCH}-CGO0.tar.gz" -O '/tmp/prometheus_proxy.tar.gz'
+  download_latest_github_release_filter 'shield-wall-net' 'Prometheus-Proxy' '/tmp/prometheus_proxy.tar.gz' '' 'client'
   tar -xzf '/tmp/prometheus_proxy.tar.gz' -C '/tmp/'
   mv "/tmp/prometheus-proxy-linux-${CPU_ARCH}-CGO0" '/usr/local/bin/prometheus_proxy'
 fi
@@ -225,8 +238,8 @@ log 'LOGGING CONFIG'
 cp "${DIR_SETUP}/files/log/rsyslog.conf" '/etc/rsyslog.d/shieldwall.conf'
 cp "${DIR_SETUP}/files/log/logrotate" '/etc/logrotate.d/shieldwall'
 
+# NOTE: logrotate config must be owned by root and not writable by group
 chown "$USER" /etc/rsyslog.d/*shieldwall*
-chown "$USER" '/etc/logrotate.d/shieldwall'
 
 new_service 'rsyslog'
 systemctl restart logrotate.service
@@ -261,3 +274,5 @@ echo '#########################################'
 log 'SETUP FINISHED! Please reboot the system!'
 
 exit 0
+
+}

@@ -1,7 +1,6 @@
 # {{ shieldwall_managed }}
 
 /var/log/shieldwall/boxes/*.log {
-    su shieldwall shieldwall
     daily
     rotate 30
     missingok
@@ -9,10 +8,13 @@
     create 640 root adm
     compress
     delaycompress
+    sharedscripts
+    postrotate
+        /usr/lib/rsyslog/rsyslog-rotate
+    endscript
 }
 
 /var/log/shieldwall/*.log {
-    su shieldwall shieldwall
     daily
     rotate 30
     missingok
@@ -20,10 +22,13 @@
     create 640 root adm
     compress
     delaycompress
+    sharedscripts
+    postrotate
+        /usr/lib/rsyslog/rsyslog-rotate
+    endscript
 }
 
 /var/log/ulog/syslogemu.log {
-    su shieldwall shieldwall
     daily
     rotate 30
     missingok
@@ -31,4 +36,12 @@
     create 640 root adm
     compress
     delaycompress
+    sharedscripts
+    postrotate
+        if [ -d /run/systemd/system ] && command systemctl >/dev/null 2>&1 && systemctl is-active --quiet ulogd2.service; then
+            systemctl kill --kill-who main --signal=SIGHUP ulogd2.service
+        else
+            invoke-rc.d ulogd2 reload > /dev/null
+        fi
+    endscript
 }
