@@ -2,12 +2,15 @@
 
 # /etc/shieldwall/log_loki.yml
 # source: https://github.com/grafana/loki/blob/main/cmd/loki/loki-docker-config.yaml
+# see also: https://grafana.com/docs/loki/latest/configure/
 
 auth_enabled: false
 
 server:
   http_listen_port: 3100
   log_level: 'warn'
+  grpc_server_max_recv_msg_size: 20480000  # ~20MB
+  grpc_server_max_send_msg_size: 20480000  # ~20MB
 
 common:
   instance_addr: '127.0.0.1'
@@ -30,6 +33,10 @@ schema_config:
       index:
         prefix: 'index_'
         period: '24h'
+
+limits_config:
+   max_query_series: 100000
+   # retention_period: '365d'
 
 analytics:
   reporting_enabled: false

@@ -50,3 +50,7 @@ def get_box(uuid: str) -> Box:
     for box in AllBoxes:
         if box.uuid == uuid:
             return box
+
+
+# register
+#   python3 -c "from uuid import uuid4; print(f'{uuid4()}.box.shieldwall')"

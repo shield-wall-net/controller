@@ -4,7 +4,8 @@
 
 global:
   scrape_interval: 15s
-  evaluation_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 1m
 
 # Alertmanager configuration
 # alerting:
@@ -13,13 +14,5 @@ global:
 #         - targets:
 #           # - alertmanager:9093
 
-scrape_configs:
-  - job_name: 'shieldwall_boxes'
-    proxy_url: 'http://log-prometheus-proxy:8080/'
-    params:
-      _scheme: ['https']
-    static_configs:
-      # todo: auto-generate
-      - targets: ['<UUID>.box.shieldwall:9100']
-        labels:
-          hostname: '<PRETTY-NAME>'
+scrape_config_files:
+  - '/etc/shieldwall/log_prometheus_boxes*.yml'

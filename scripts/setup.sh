@@ -47,8 +47,7 @@ CTRL_VERSION='latest'
 USER='shieldwall'
 USER_ID='2000'
 DIR_HOME='/home/shieldwall'
-DIR_LIB='/var/local/lib/shieldwall'
-DIR_SCRIPT='/usr/local/bin/shieldwall'
+DIR_LIB='/var/lib/shieldwall'
 DIR_LOG='/var/log/shieldwall'
 DIR_CNF='/etc/shieldwall'
 
@@ -131,11 +130,10 @@ then
   groupadd 'ssl-cert'
 fi
 
-mkdir -p "$DIR_LIB" "$DIR_SCRIPT" "$DIR_LOG" "$DIR_CNF"
+mkdir -p "$DIR_LIB" "$DIR_LOG" "$DIR_CNF"
 chown "$USER" "$DIR_LIB" "$DIR_CNF"
-chown "$USER":"$USER" "$DIR_SCRIPT"
 chown 'root':'adm' "$DIR_LOG"
-chmod 750 "$DIR_LIB" "$DIR_SCRIPT" "$DIR_CNF" "$DIR_LOG"
+chmod 750 "$DIR_LIB" "$DIR_CNF" "$DIR_LOG"
 
 touch "${DIR_CNF}/update.env"
 chown "$USER" "${DIR_CNF}/update.env"
@@ -260,15 +258,37 @@ cp "${DIR_SETUP}/files/log/logserver.yml" '/etc/shieldwall/logserver.yml'
 cp "${DIR_SETUP}/files/log/loki.yml" '/etc/shieldwall/log_loki.yml'
 cp "${DIR_SETUP}/files/log/prometheus.yml" '/etc/shieldwall/log_prometheus.yml'
 cp "${DIR_SETUP}/files/log/promtail.yml" '/etc/shieldwall/log_promtail.yml'
+if ! [ -f '/etc/shieldwall/log_prometheus_boxes.yml' ]
+then
+  cp "${DIR_SETUP}/files/log/prometheus_boxes.yml" '/etc/shieldwall/log_prometheus_boxes.yml'
+fi
 
-mkdir -p '/var/lib/shieldwall/log/grafana'
-mkdir -p '/var/lib/shieldwall/log/loki'
+mkdir -p "${DIR_LIB}/log/grafana"
+mkdir -p "${DIR_LIB}/log/loki"
 
-chown grafana:grafana '/var/lib/shieldwall/log/grafana/'
-chown loki:loki '/var/lib/shieldwall/log/loki/'
+chown grafana:grafana "${DIR_LIB}/log/grafana/"
+chown loki:loki "${DIR_LIB}/log/loki/"
 chown "$USER" /etc/shieldwall/*
 
 new_service 'shieldwall_logserver'
+
+log 'GRAFANA PLUGINS'
+
+declare -A grafana_plugins
+# grafana_plugins[grafana-xxx-yyy]='https://....zip'
+
+for plugin_name in "${!grafana_plugins[@]}"
+do
+  if ! [ -d "${DIR_LIB}/log/grafana/plugins/${plugin_name}" ]
+  then
+    plugin_url="${grafana_plugins[$plugin_name]}"
+    wget -4 "$plugin_url" -O "/tmp/${plugin_name}.zip"
+    unzip "/tmp/${plugin_name}.zip" -d "${DIR_LIB}/log/grafana/plugins/"
+    chown -R grafana:grafana "${DIR_LIB}/log/grafana/plugins/${plugin_name}"
+  fi
+done
+
+systemctl restart shieldwall_logserver.service
 
 echo '#########################################'
 log 'SETUP FINISHED! Please reboot the system!'

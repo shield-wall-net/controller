@@ -1,0 +1,13 @@
+---
+
+# ShieldWall auto-generated - DO NOT MODIFY!
+
+job_name: 'shieldwall_boxes'
+proxy_url: 'http://log-prometheus-proxy:8080/'
+params:
+  _scheme: ['https']
+static_configs:
+  # todo: auto-generate
+  - targets: ['<UUID>.box.shieldwall:9100']
+    labels:
+      hostname: '<PRETTY-NAME>'
