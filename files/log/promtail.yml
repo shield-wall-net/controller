@@ -197,54 +197,63 @@ scrape_configs:
                 category: 'Data'
             - json:
                 expressions:
-                  packet_time: 'TimeReceived'
-                  packet_time_start: 'TimeFlowStartMs'
-                  packet_time_end: 'TimeFlowEndMs'
-                  packet_if_in: 'InIf'
-                  packet_if_out: 'OutIf'
-                  packet_vlan_in: 'SrcVlan'
-                  packet_vlan_out: 'DestVlan'
-                  packet_ip_src: 'SrcAddr'
-                  packet_ip_dst: 'DstAddr'
-                  packet_size: 'Bytes'
-                  packet_count: 'Packets'
-                  packet_proto: 'Proto'
-                  packet_port_src: 'SrcPort'
-                  packet_port_dst: 'DstPort'
-                  packet_tcp_flags: 'TcpFlags'
-                  packet_icmp_type: 'IcmpType'
-                  packet_icmp_code: 'IcmpCode'
-                  packet_next_hop: 'NextHop'
+                  flow_time: 'TimeReceived'
+                  flow_time_start: 'TimeFlowStartMs'
+                  flow_time_end: 'TimeFlowEndMs'
+                  flow_if_in: 'InIf'
+                  flow_if_out: 'OutIf'
+                  flow_vlan_in: 'SrcVlan'
+                  flow_vlan_out: 'DestVlan'
+                  flow_ip_src: 'SrcAddr'
+                  flow_ip_dst: 'DstAddr'
+                  flow_bytes: 'Bytes'
+                  flow_count: 'Packets'
+                  flow_proto_l3: 'Etype'  # EtypeName
+                  flow_proto_l4: 'Proto'  # ProtoName
+                  flow_port_src: 'SrcPort'
+                  flow_port_dst: 'DstPort'
+                  flow_tcp_flags: 'TcpFlags'
+                  flow_icmp_type: 'IcmpType'  # IcmpName
+                  flow_icmp_code: 'IcmpCode'
+                  flow_next_hop: 'NextHop'
+            - timestamp:
+                source: 'flow_time'
+                format: 'Unix'
+                action_on_failure: 'skip'
+            - timestamp:
+                source: 'flow_time_start'
+                format: 'UnixMs'
+                action_on_failure: 'fudge'
 
             - labels:
-                packet_time:
-                packet_time_start:
-                packet_time_end:
-                packet_if_in:
-                packet_if_out:
-                packet_vlan_in:
-                packet_vlan_out:
-                packet_ip_src:
-                packet_ip_dst:
-                packet_size:
-                packet_count:
-                packet_proto:
-                packet_port_src:
-                packet_port_dst:
-                packet_tcp_flags:
-                packet_icmp_type:
-                packet_icmp_code:
-                packet_next_hop:
+                flow_time:
+                flow_time_start:
+                flow_time_end:
+                flow_if_in:
+                flow_if_out:
+                flow_vlan_in:
+                flow_vlan_out:
+                flow_ip_src:
+                flow_ip_dst:
+                flow_size:
+                flow_count:
+                flow_proto:
+                flow_port_src:
+                flow_port_dst:
+                flow_tcp_flags:
+                flow_icmp_type:
+                flow_icmp_code:
+                flow_next_hop:
 
             # todo: opt-in or ignore if geoip-dbs do not exist
             - geoip:
                 db: "/etc/geoip/asn.mmdb"
-                source: "packet_ip_src"
+                source: "flow_ip_src"
                 db_type: "asn"
 
             - geoip:
                 db: "/etc/geoip/city.mmdb"
-                source: "packet_ip_src"
+                source: "flow_ip_src"
                 db_type: "city"
             - labeldrop:
                 - 'geoip_continent_code'
