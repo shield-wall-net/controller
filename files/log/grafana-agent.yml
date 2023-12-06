@@ -1,0 +1,336 @@
+---
+
+# {{ shieldwall_managed }}
+# see:
+#   https://grafana.com/docs/agent/latest/static/configuration/create-config-file/
+#   https://grafana.com/docs/loki/latest/send-data/promtail/configuration/#syslog
+#   https://github.com/grafana/loki/blob/main/clients/cmd/promtail/promtail-docker-config.yaml
+#   https://grafana.com/docs/loki/latest/send-data/promtail/scraping/#syslog-receiver
+
+server:
+  log_level: 'warn'
+
+integrations:
+  agent:
+    enabled: false
+  node_exporter:
+    enabled: false
+
+logs:
+  configs:
+    - name: shieldwall
+      clients:
+        - url: 'http://log-loki:3100/loki/api/v1/push'
+      positions:
+        filename: '/tmp/positions.yml'
+      scrape_configs:
+        - job_name: 'ShieldWallBoxes'
+          syslog:
+            listen_address: '0.0.0.0:1514'
+            listen_protocol: 'tcp'
+            idle_timeout: 60s
+            label_structured_data: yes
+            labels:
+              job: 'shieldwall'
+          relabel_configs:
+            - source_labels: ['__syslog_connection_hostname']
+              target_label: 'controller_hostname'
+            - source_labels: ['__syslog_message_hostname']
+              target_label: 'hostname'
+            - source_labels: ['__syslog_message_severity']
+              target_label: 'level'
+            - source_labels: ['__syslog_message_facility']
+              target_label: 'facility'
+            - source_labels: ['__syslog_message_app_name']
+              target_label: 'application'
+            - source_labels: ['__syslog_message_msg_id']
+              target_label: 'syslog_id'
+
+          # see: https://grafana.com/docs/loki/latest/send-data/promtail/stages/
+          pipeline_stages:
+            - match:
+                selector: '{facility="kern"} |= "NFTables"'
+                stages:
+                  - static_labels:
+                      component: 'Packet filter'
+
+                  - regex:
+                      expression: 'NFTables\s(?P<packet_action>.*?)\s(?P<packet_chain>.*?)\s(?P<packet_comment>.*?):'
+                  - regex:
+                      expression: '\sIN=(?P<packet_if_in>.*?)\s'
+                  - regex:
+                      expression: '\sIN=[a-zA-Z0-9]*?\.(?P<packet_vlan_in>[0-9]{1,4})\s'
+                  - regex:
+                      expression: '\sOUT=(?P<packet_if_out>.*?)\s'
+                  - regex:
+                      expression: '\sOUT=[a-zA-Z0-9]*?\.(?P<packet_vlan_out>[0-9]{1,4})\s'
+                  - regex:
+                      expression: '\sSRC=(?P<packet_ip_src>.*?)\s'
+                  - regex:
+                      expression: '\sDST=(?P<packet_ip_dst>.*?)\s'
+                  - regex:
+                      expression: '\sPROTO=(?P<packet_proto>.*?)\s'
+                  - regex:
+                      expression: '\sSPT=(?P<packet_port_src>.*?)\s'
+                  - regex:
+                      expression: '\sDPT=(?P<packet_port_dst>.*?)\s'
+                  - regex:
+                      expression: 'PROTO=TCP.*RES=.*?\s(?P<packet_tcp_flags>.*?)\s'
+                  # - regex:
+                  #     expression: '\sLEN=(?P<packet_len>.*?)\s'
+                  # - regex:
+                  #     expression: '\sWINDOW=(?P<packet_window>.*?)\s'
+                  # - regex:
+                  #     expression: '\sMAC=(?P<packet_mac>.*?)\s'
+
+                  - labels:
+                      packet_action:
+                      packet_chain:
+                      packet_comment:
+                      packet_if_in:
+                      packet_if_out:
+                      packet_vlan_in:
+                      packet_vlan_out:
+                      packet_proto:
+                      packet_port_src:
+                      packet_port_dst:
+                      packet_tcp_flags:
+                      # packet_len:
+                      # packet_window:
+                      # packet_mac:
+
+                  # todo: opt-in or ignore if geoip-dbs do not exist
+                  - geoip:
+                      db: "/etc/geoip/asn.mmdb"
+                      source: "packet_ip_src"
+                      db_type: "asn"
+                  # - template:
+                  #     source: 'packet_geoip_src_asn'
+                  #     template: '{{or .geoip_autonomous_system_number "-"}}'
+                  # - template:
+                  #     source: 'packet_geoip_src_as_name'
+                  #     template: '{{or .geoip_autonomous_system_organization "-"}}'
+                  # - labels:
+                  #     packet_geoip_src_asn:
+                  # - labeldrop:
+                  #     - 'geoip_autonomous_system_number'
+                  #     - 'geoip_autonomous_system_organization'
+
+                  - geoip:
+                      db: "/etc/geoip/city.mmdb"
+                      source: "packet_ip_src"
+                      db_type: "city"
+                  # - template:
+                  #     source: 'packet_geoip_src_continent'
+                  #     template: '{{or .geoip_continent_code "-"}}'
+                  # - template:
+                  #     source: 'packet_geoip_src_country_name'
+                  #     template: '{{or .geoip_country_name "-"}}'
+                  # - template:
+                  #     source: 'packet_geoip_src_location_y'
+                  #     template: '{{or .geoip_location_latitude "-"}}'
+                  # - template:
+                  #     source: 'packet_geoip_src_location_x'
+                  #     template: '{{or .geoip_location_longitude "-"}}'
+                  - labeldrop:
+                      # - 'geoip_continent_code'
+                      - 'geoip_continent_name'
+                      # - 'geoip_country_name'
+                      # - 'geoip_location_latitude'
+                      # - 'geoip_location_longitude'
+                      - 'geoip_city_name'
+                      - 'geoip_postal_code'
+                      - 'geoip_subdivision_code'
+                      - 'geoip_subdivision_name'
+                      - 'geoip_timezone'
+
+                  # for IP-censorship (data-protection/gdpr) todo: opt-out
+                  ## IPv4 (last 8 bits)
+                  - replace:
+                      expression: '\d{1,3}[.]\d{1,3}[.]\d{1,3}[.](\d{1,3})'
+                      replace: 'x'
+                  - replace:
+                      source: 'packet_ip_src'
+                      expression: '\d{1,3}[.]\d{1,3}[.]\d{1,3}[.](\d{1,3})'
+                      replace: 'x'
+                  - replace:
+                      source: 'packet_ip_dst'
+                      expression: '\d{1,3}[.]\d{1,3}[.]\d{1,3}[.](\d{1,3})'
+                      replace: 'x'
+                  ## IPv6 (last 32 bits)
+                  - replace:
+                      expression: '.*:([a-fA-F\d]{1,4}:[a-fA-F\d]{1,4})$'
+                      replace: 'x:x'
+                  - replace:
+                      source: 'packet_ip_src'
+                      expression: '.*:([a-fA-F\d]{1,4}:[a-fA-F\d]{1,4})$'
+                      replace: 'x:x'
+                  - replace:
+                      source: 'packet_ip_dst'
+                      expression: '.*:([a-fA-F\d]{1,4}:[a-fA-F\d]{1,4})$'
+                      replace: 'x:x'
+
+                  - labels:
+                      packet_ip_src:
+                      packet_ip_dst:
+
+            - match:
+                selector: '{application="squid", facility="local2"}'
+                stages:
+                  - static_labels:
+                      component: 'Proxy'
+                      category: 'Request'
+
+                  # for IP-censorship (data-protection/gdpr) todo: opt-out
+                  ## IPv4 (last 8 bits)
+                  - replace:
+                      expression: '\d{1,3}[.]\d{1,3}[.]\d{1,3}[.](\d{1,3})'
+                      replace: 'x'
+                  ## IPv6 (last 32 bits)
+                  - replace:
+                      expression: '.*:([a-fA-F\d]{1,4}:[a-fA-F\d]{1,4})$'
+                      replace: 'x:x'
+
+            - match:
+                selector: '{application="squid", facility!="local2"}'
+                stages:
+                  - static_labels:
+                      component: 'Proxy'
+                      category: 'Service'
+
+            - match:
+                selector: '{application="shieldwall_box"}'
+                stages:
+                  - static_labels:
+                      component: 'ShieldWall System'
+                      category: 'Box Service'
+
+            - match:
+                selector: '{application="shieldwall_box_update"}'
+                stages:
+                  - static_labels:
+                      component: 'ShieldWall System'
+                      category: 'Box Update'
+
+            - match:
+                selector: '{application="shieldwall_controller"}'
+                stages:
+                  - static_labels:
+                      component: 'ShieldWall System'
+                      category: 'Controller Service'
+
+            - match:
+                selector: '{application="shieldwall_controller_update"}'
+                stages:
+                  - static_labels:
+                      component: 'ShieldWall System'
+                      category: 'Controller Update'
+
+            - match:
+                selector: '{application="netflow"}'
+                stages:
+                  - static_labels:
+                      component: 'NetFlow'
+                      category: 'Service'
+
+            - match:
+                selector: '{application="netflow_data"}'
+                stages:
+                  - static_labels:
+                      component: 'NetFlow'
+                      category: 'Data'
+                  - json:
+                      expressions:
+                        flow_time: 'TimeReceived'
+                        flow_time_start: 'TimeFlowStartMs'
+                        flow_time_end: 'TimeFlowEndMs'
+                        flow_if_in: 'InIf'
+                        flow_if_out: 'OutIf'
+                        flow_vlan_in: 'SrcVlan'
+                        flow_vlan_out: 'DestVlan'
+                        flow_ip_src: 'SrcAddr'
+                        flow_ip_dst: 'DstAddr'
+                        flow_bytes: 'Bytes'
+                        flow_count: 'Packets'
+                        flow_proto_l3: 'Etype'  # EtypeName
+                        flow_proto_l4: 'Proto'  # ProtoName
+                        flow_port_src: 'SrcPort'
+                        flow_port_dst: 'DstPort'
+                        flow_tcp_flags: 'TcpFlags'
+                        flow_icmp_type: 'IcmpType'  # IcmpName
+                        flow_icmp_code: 'IcmpCode'
+                        flow_next_hop: 'NextHop'
+                  - timestamp:
+                      source: 'flow_time'
+                      format: 'Unix'
+                      action_on_failure: 'skip'
+                  - timestamp:
+                      source: 'flow_time_start'
+                      format: 'UnixMs'
+                      action_on_failure: 'fudge'
+
+                  - labels:
+                      flow_time:
+                      flow_time_start:
+                      flow_time_end:
+                      flow_if_in:
+                      flow_if_out:
+                      flow_vlan_in:
+                      flow_vlan_out:
+                      flow_size:
+                      flow_count:
+                      flow_proto:
+                      flow_port_src:
+                      flow_port_dst:
+                      flow_tcp_flags:
+                      flow_icmp_type:
+                      flow_icmp_code:
+                      flow_next_hop:
+
+                  # todo: opt-in or ignore if geoip-dbs do not exist
+                  - geoip:
+                      db: "/etc/geoip/asn.mmdb"
+                      source: "flow_ip_src"
+                      db_type: "asn"
+
+                  - geoip:
+                      db: "/etc/geoip/city.mmdb"
+                      source: "flow_ip_src"
+                      db_type: "city"
+                  - labeldrop:
+                      - 'geoip_continent_code'
+                      - 'geoip_city_name'
+                      - 'geoip_postal_code'
+                      - 'geoip_subdivision_code'
+                      - 'geoip_subdivision_name'
+                      - 'geoip_timezone'
+
+                  # for IP-censorship (data-protection/gdpr) todo: opt-out
+                  ## IPv4 (last 8 bits)
+                  - replace:
+                      expression: '\d{1,3}[.]\d{1,3}[.]\d{1,3}[.](\d{1,3})'
+                      replace: 'x'
+                  - replace:
+                      source: 'flow_ip_src'
+                      expression: '\d{1,3}[.]\d{1,3}[.]\d{1,3}[.](\d{1,3})'
+                      replace: 'x'
+                  - replace:
+                      source: 'flow_ip_dst'
+                      expression: '\d{1,3}[.]\d{1,3}[.]\d{1,3}[.](\d{1,3})'
+                      replace: 'x'
+                  ## IPv6 (last 32 bits)
+                  - replace:
+                      expression: '.*:([a-fA-F\d]{1,4}:[a-fA-F\d]{1,4})$'
+                      replace: 'x:x'
+                  - replace:
+                      source: 'flow_ip_src'
+                      expression: '.*:([a-fA-F\d]{1,4}:[a-fA-F\d]{1,4})$'
+                      replace: 'x:x'
+                  - replace:
+                      source: 'flow_ip_dst'
+                      expression: '.*:([a-fA-F\d]{1,4}:[a-fA-F\d]{1,4})$'
+                      replace: 'x:x'
+
+                  - labels:
+                      flow_ip_src:
+                      flow_ip_dst:

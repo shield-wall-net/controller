@@ -22,7 +22,7 @@ Controllers are self-hosted.
   - [ ] Patch/Package management
   - [ ] Configuration rollout
 - [ ] Logging
-  - [x] Boxes => Syslog-TLS => Controller => [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/) => [Grafana Loki](https://grafana.com/docs/loki/latest/get-started/overview)
+  - [x] Boxes => Syslog-TLS => Controller => [Grafana-Agent](https://grafana.com/docs/loki/latest/send-data/promtail/) => [Grafana Loki](https://grafana.com/docs/loki/latest/get-started/overview)
   - [ ] [Visualize/Log Analysis](https://grafana.com/docs/loki/latest/visualize/grafana/)
     - [ ] GeoIP Integration
     - [ ] Collection of Dashboards

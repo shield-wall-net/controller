@@ -257,7 +257,7 @@ cp "${DIR_SETUP}/files/log/logserver.service" '/etc/systemd/system/shieldwall_lo
 cp "${DIR_SETUP}/files/log/logserver.yml" '/etc/shieldwall/logserver.yml'
 cp "${DIR_SETUP}/files/log/loki.yml" '/etc/shieldwall/log_loki.yml'
 cp "${DIR_SETUP}/files/log/prometheus.yml" '/etc/shieldwall/log_prometheus.yml'
-cp "${DIR_SETUP}/files/log/promtail.yml" '/etc/shieldwall/log_promtail.yml'
+cp "${DIR_SETUP}/files/log/grafana-agent.yml" '/etc/shieldwall/log_grafana-agent.yml'
 if ! [ -f '/etc/shieldwall/log_prometheus_boxes.yml' ]
 then
   cp "${DIR_SETUP}/files/log/prometheus_boxes.yml" '/etc/shieldwall/log_prometheus_boxes.yml'

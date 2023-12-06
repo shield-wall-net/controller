@@ -30,13 +30,18 @@ services:
       - logserver
     restart: 'always'
 
-  log-promtail:
-    image: 'grafana/promtail:latest'
+  log-grafana-agent:
+    image: 'grafana/agent:latest'
     volumes:
       - '/var/log/shieldwall:/var/log/shieldwall'
-      - '/etc/shieldwall/log_promtail.yml:/etc/promtail/config.yml'
+      - '/etc/shieldwall/log_grafana-agent.yml:/etc/agent-config/agent.yaml'
       - '/etc/geoip:/etc/geoip'
-    command: '-config.file=/etc/promtail/config.yml'
+    entrypoint:
+      - '/bin/grafana-agent'
+      - '-server.http.address=0.0.0.0:3001'
+      - '-config.file=/etc/agent-config/agent.yaml'
+    environment:
+      LOKI_HOST: 'log-loki:3100'
     ports:
       - '127.0.0.1:1514:1514'  # syslog
       - '127.0.0.1:3001:3001'  # web-ui
