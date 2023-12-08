@@ -254,6 +254,7 @@ fi
 cp "${DIR_SETUP}/files/log/grafana.ini" '/etc/shieldwall/log_grafana.ini'
 cp "${DIR_SETUP}/files/log/grafana.yml" '/etc/shieldwall/log_grafana.yml'
 cp "${DIR_SETUP}/files/log/logserver.service" '/etc/systemd/system/shieldwall_logserver.service'
+cp "${DIR_SETUP}/files/log/logserver_update.service" '/etc/systemd/system/shieldwall_logserver_update.service'
 cp "${DIR_SETUP}/files/log/logserver.yml" '/etc/shieldwall/logserver.yml'
 cp "${DIR_SETUP}/files/log/loki.yml" '/etc/shieldwall/log_loki.yml'
 cp "${DIR_SETUP}/files/log/prometheus.yml" '/etc/shieldwall/log_prometheus.yml'

@@ -44,7 +44,7 @@ services:
       LOKI_HOST: 'log-loki:3100'
     ports:
       - '127.0.0.1:1514:1514'  # syslog
-      - '127.0.0.1:3001:3001'  # web-ui
+      - '127.0.0.1:3001:3001'  # web/metrics
     networks:
       - logserver
     restart: 'always'

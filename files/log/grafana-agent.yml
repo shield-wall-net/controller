@@ -18,7 +18,7 @@ integrations:
 
 logs:
   configs:
-    - name: shieldwall
+    - name: ShieldWall
       clients:
         - url: 'http://log-loki:3100/loki/api/v1/push'
       positions:
@@ -33,8 +33,6 @@ logs:
             labels:
               job: 'shieldwall'
           relabel_configs:
-            - source_labels: ['__syslog_connection_hostname']
-              target_label: 'controller_hostname'
             - source_labels: ['__syslog_message_hostname']
               target_label: 'hostname'
             - source_labels: ['__syslog_message_severity']
@@ -43,11 +41,31 @@ logs:
               target_label: 'facility'
             - source_labels: ['__syslog_message_app_name']
               target_label: 'application'
-            - source_labels: ['__syslog_message_msg_id']
-              target_label: 'syslog_id'
 
           # see: https://grafana.com/docs/loki/latest/send-data/promtail/stages/
           pipeline_stages:
+            - match:
+                selector: '{hostname=~".*"}'
+                stages:
+                  - metrics:
+                      log_lines_total:
+                        type: 'Counter'
+                        description: "total number of log lines"
+                        prefix: 'shieldwall_'
+                        max_idle_duration: '24h'
+                        config:
+                          match_all: true
+                          action: 'inc'
+                      log_bytes_total:
+                        type: 'Counter'
+                        description: "total bytes of log lines"
+                        prefix: 'shieldwall_'
+                        max_idle_duration: '24h'
+                        config:
+                          match_all: true
+                          count_entry_bytes: true
+                          action: 'add'
+
             - match:
                 selector: '{facility="kern"} |= "NFTables"'
                 stages:
@@ -104,40 +122,52 @@ logs:
                       db: "/etc/geoip/asn.mmdb"
                       source: "packet_ip_src"
                       db_type: "asn"
-                  # - template:
-                  #     source: 'packet_geoip_src_asn'
-                  #     template: '{{or .geoip_autonomous_system_number "-"}}'
-                  # - template:
-                  #     source: 'packet_geoip_src_as_name'
-                  #     template: '{{or .geoip_autonomous_system_organization "-"}}'
-                  # - labels:
-                  #     packet_geoip_src_asn:
-                  # - labeldrop:
-                  #     - 'geoip_autonomous_system_number'
-                  #     - 'geoip_autonomous_system_organization'
+                  - template:
+                      source: 'packet_geoip_src_asn'
+                      template: '{{or .geoip_autonomous_system_number "-"}}'
+                  - template:
+                      source: 'packet_geoip_src_as_name'
+                      template: '{{or .geoip_autonomous_system_organization "-"}}'
+                  - labels:
+                      packet_geoip_src_asn:
+                      packet_geoip_src_as_name:
+                  - labeldrop:
+                      - 'geoip_autonomous_system_number'
+                      - 'geoip_autonomous_system_organization'
 
                   - geoip:
                       db: "/etc/geoip/city.mmdb"
                       source: "packet_ip_src"
                       db_type: "city"
-                  # - template:
-                  #     source: 'packet_geoip_src_continent'
-                  #     template: '{{or .geoip_continent_code "-"}}'
-                  # - template:
-                  #     source: 'packet_geoip_src_country_name'
-                  #     template: '{{or .geoip_country_name "-"}}'
-                  # - template:
-                  #     source: 'packet_geoip_src_location_y'
-                  #     template: '{{or .geoip_location_latitude "-"}}'
-                  # - template:
-                  #     source: 'packet_geoip_src_location_x'
-                  #     template: '{{or .geoip_location_longitude "-"}}'
+                  - template:
+                      source: 'packet_geoip_src_continent'
+                      template: '{{or .geoip_continent_code "-"}}'
+                  - template:
+                      source: 'packet_geoip_src_country_name'
+                      template: '{{or .geoip_country_name "-"}}'
+                  - template:
+                      source: 'packet_geoip_src_country_code'
+                      template: '{{or .geoip_country_code "-"}}'
+                  - template:
+                      source: 'packet_geoip_src_location_y'
+                      template: '{{or .geoip_location_latitude "-"}}'
+                  - template:
+                      source: 'packet_geoip_src_location_x'
+                      template: '{{or .geoip_location_longitude "-"}}'
+                  - labels:
+                      packet_geoip_src_continent:
+                      packet_geoip_src_country_name:
+                      packet_geoip_src_country_code:
+                      packet_geoip_src_location_y:
+                      packet_geoip_src_location_x:
+
                   - labeldrop:
-                      # - 'geoip_continent_code'
+                      - 'geoip_continent_code'
                       - 'geoip_continent_name'
-                      # - 'geoip_country_name'
-                      # - 'geoip_location_latitude'
-                      # - 'geoip_location_longitude'
+                      - 'geoip_country_name'
+                      - 'geoip_country_code'
+                      - 'geoip_location_latitude'
+                      - 'geoip_location_longitude'
                       - 'geoip_city_name'
                       - 'geoip_postal_code'
                       - 'geoip_subdivision_code'
@@ -233,6 +263,45 @@ logs:
                       component: 'NetFlow'
                       category: 'Service'
 
+            # netflow metrics
+            - match:
+                selector: '{application="netflow_data"}'
+                stages:
+                  - json:
+                      expressions:
+                        flow_time: 'TimeReceived'
+                        flow_time_start: 'TimeFlowStartMs'
+                        flow_if_in: 'InIf'
+                        flow_if_out: 'OutIf'
+                        flow_vlan_in: 'SrcVlan'
+                        flow_vlan_out: 'DestVlan'
+                        flow_bytes: 'Bytes'
+
+                  - labels:
+                      flow_if_in:
+                      flow_if_out:
+                      flow_vlan_in:
+                      flow_vlan_out:
+
+                  - timestamp:
+                      source: 'flow_time'
+                      format: 'Unix'
+                      action_on_failure: 'skip'
+                  - timestamp:
+                      source: 'flow_time_start'
+                      format: 'UnixMs'
+                      action_on_failure: 'fudge'
+
+                  - metrics:
+                      flow_throughput:
+                        type: 'Counter'
+                        description: 'Traffic throughput per interface and vlan'
+                        prefix: 'shieldwall_'
+                        source: 'flow_bytes'
+                        config:
+                          action: 'add'
+
+            # netflow logs
             - match:
                 selector: '{application="netflow_data"}'
                 stages:
@@ -277,7 +346,7 @@ logs:
                       flow_if_out:
                       flow_vlan_in:
                       flow_vlan_out:
-                      flow_size:
+                      flow_bytes:
                       flow_count:
                       flow_proto:
                       flow_port_src:
@@ -297,13 +366,6 @@ logs:
                       db: "/etc/geoip/city.mmdb"
                       source: "flow_ip_src"
                       db_type: "city"
-                  - labeldrop:
-                      - 'geoip_continent_code'
-                      - 'geoip_city_name'
-                      - 'geoip_postal_code'
-                      - 'geoip_subdivision_code'
-                      - 'geoip_subdivision_name'
-                      - 'geoip_timezone'
 
                   # for IP-censorship (data-protection/gdpr) todo: opt-out
                   ## IPv4 (last 8 bits)

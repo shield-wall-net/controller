@@ -14,5 +14,10 @@ global:
 #         - targets:
 #           # - alertmanager:9093
 
+scrape_configs:
+  - job_name: 'shieldwall_logserver'
+    static_configs:
+      - targets: ['log-grafana-agent:3001']
+
 scrape_config_files:
   - '/etc/shieldwall/log_prometheus_boxes*.yml'

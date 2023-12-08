@@ -4,7 +4,7 @@
 
 apiVersion: 1
 datasources:
-  - name: 'ShieldWall Box Logs'
+  - name: 'ShieldWall Logs'
     type: 'loki'
     access: 'proxy'
     orgId: 1
@@ -14,7 +14,7 @@ datasources:
     version: 1
     editable: false
 
-  - name: 'ShieldWall Box Metrics'
+  - name: 'ShieldWall Metrics'
     type: 'prometheus'
     access: 'proxy'
     orgId: 1

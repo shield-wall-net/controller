@@ -1,0 +1,24 @@
+# {{ shieldwall_managed }}
+
+# todo: add timer for automated update
+
+[Unit]
+Description=ShieldWall firewall - Logserver Update service
+Documentation=https://wiki.shield-wall.net
+After=network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/docker compose -f /etc/shieldwall/logserver.yml pull
+ExecStartPre=/usr/bin/echo 'Restarting Logserver containers'
+ExecStart=/usr/bin/systemctl restart shieldwall_logserver.service
+ExecStop=/usr/bin/docker image prune --force
+
+User=root
+Group=root
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=shieldwall_logserver_update
