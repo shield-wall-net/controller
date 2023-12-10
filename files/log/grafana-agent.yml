@@ -271,8 +271,9 @@ logs:
                       expressions:
                         flow_time: 'TimeReceived'
                         flow_time_start: 'TimeFlowStartMs'
-                        flow_if_in: 'InIf'
-                        flow_if_out: 'OutIf'
+                        flow_if_in: 'InIfName'
+                        flow_if_out: 'OutIfName'
+                        flow_direction: 'FlowDirectionName'
                         flow_vlan_in: 'SrcVlan'
                         flow_vlan_out: 'DestVlan'
                         flow_bytes: 'Bytes'
@@ -280,6 +281,7 @@ logs:
                   - labels:
                       flow_if_in:
                       flow_if_out:
+                      flow_direction:
                       flow_vlan_in:
                       flow_vlan_out:
 
@@ -313,22 +315,23 @@ logs:
                         flow_time: 'TimeReceived'
                         flow_time_start: 'TimeFlowStartMs'
                         flow_time_end: 'TimeFlowEndMs'
-                        flow_if_in: 'InIf'
-                        flow_if_out: 'OutIf'
+                        flow_if_in: 'InIfName'
+                        flow_if_out: 'OutIfName'
+                        flow_direction: 'FlowDirectionName'
+                        flow_type: 'FlowTypeName'
                         flow_vlan_in: 'SrcVlan'
                         flow_vlan_out: 'DestVlan'
                         flow_ip_src: 'SrcAddr'
                         flow_ip_dst: 'DstAddr'
                         flow_bytes: 'Bytes'
                         flow_count: 'Packets'
-                        flow_proto_l3: 'Etype'  # EtypeName
-                        flow_proto_l4: 'Proto'  # ProtoName
+                        flow_proto_l3: 'EtypeName'
+                        flow_proto_l4: 'ProtoName'
                         flow_port_src: 'SrcPort'
                         flow_port_dst: 'DstPort'
                         flow_tcp_flags: 'TcpFlags'
-                        flow_icmp_type: 'IcmpType'  # IcmpName
+                        flow_icmp_type: 'IcmpName'
                         flow_icmp_code: 'IcmpCode'
-                        flow_next_hop: 'NextHop'
                   - timestamp:
                       source: 'flow_time'
                       format: 'Unix'
@@ -344,17 +347,19 @@ logs:
                       flow_time_end:
                       flow_if_in:
                       flow_if_out:
+                      flow_direction:
+                      flow_type:
                       flow_vlan_in:
                       flow_vlan_out:
                       flow_bytes:
                       flow_count:
-                      flow_proto:
+                      flow_proto_l3:
+                      flow_proto_l4:
                       flow_port_src:
                       flow_port_dst:
                       flow_tcp_flags:
                       flow_icmp_type:
                       flow_icmp_code:
-                      flow_next_hop:
 
                   # todo: opt-in or ignore if geoip-dbs do not exist
                   - geoip:
