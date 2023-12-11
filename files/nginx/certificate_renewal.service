@@ -1,0 +1,9 @@
+# ShielWall managed
+
+[Unit]
+Description=ShieldWall firewall - Certificate renewal
+
+[Service]
+Type=oneshot
+ExecStart=certbot renew -v --non-interactive --agree-tos --renew-with-new-domains --config-dir '/etc/letsencrypt'
+SuccessExitStatus=0

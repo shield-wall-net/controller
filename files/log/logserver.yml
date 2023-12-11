@@ -26,6 +26,7 @@ services:
       - 'GF_PATHS_PROVISIONING=/etc/grafana/provisioning'
       - 'GF_AUTH_ANONYMOUS_ENABLED=true'
       - 'GF_AUTH_ANONYMOUS_ORG_ROLE=Admin'
+    user: '10000:10000'
     networks:
       - logserver
     restart: 'always'
@@ -57,6 +58,7 @@ services:
       - '/etc/shieldwall/log_loki.yml:/etc/loki/local-config.yaml'
       - '/var/lib/shieldwall/log/loki:/loki'
     command: '-config.file=/etc/loki/local-config.yaml'
+    user: '10001:10001'
     networks:
       - logserver
     restart: 'always'
@@ -65,9 +67,14 @@ services:
     image: 'prom/prometheus:latest'
     volumes:
       - '/etc/shieldwall/log_prometheus.yml:/etc/prometheus/prometheus.yml'
+      - '/var/lib/shieldwall/log/prometheus:/prometheus'
     ports:
       - '127.0.0.1:3003:9090'
-    command: '--config.file=/etc/prometheus/prometheus.yml --log.level=warn'
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--log.level=warn'
+    user: '10002:10002'
     networks:
       - logserver
     restart: 'always'

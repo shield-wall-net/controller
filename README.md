@@ -24,7 +24,7 @@ Controllers are self-hosted.
 - [ ] Logging
   - [x] Boxes => Syslog-TLS => Controller => [Grafana-Agent](https://grafana.com/docs/loki/latest/send-data/promtail/) => [Grafana Loki](https://grafana.com/docs/loki/latest/get-started/overview)
   - [ ] [Visualize/Log Analysis](https://grafana.com/docs/loki/latest/visualize/grafana/)
-    - [ ] GeoIP Integration
+    - [x] GeoIP Integration
     - [ ] Collection of Dashboards
   - [ ] [Alerting](https://grafana.com/docs/loki/latest/alert/)
   - [x] NetFlow collection: [Softflowd](https://github.com/irino/softflowd) => [GoFlow2](https://github.com/netsampler/goflow2) => Syslog => Loki/Grafana
@@ -47,7 +47,7 @@ You may want to use LVM and use partitioning like this:
 
 vg0
 - lv1 => ext4 / (min 10 GB)
-- lv2 => ext4 /var (min 20 GB)
+- lv2 => ext4 /var (min 30 GB) (could need more for log-storage)
 - lv3 => swap (min 1 GB)
 ```
 

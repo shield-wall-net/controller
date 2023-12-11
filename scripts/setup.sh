@@ -1,5 +1,9 @@
 #!/bin/bash
 
+LETSENCRYPT_CERTBOT=1  # disable=set to 0
+LETSENCRYPT_DOMAINS=()
+LETSENCRYPT_EMAIL='webmaster@example.org'
+
 set -euo pipefail
 
 echo ''
@@ -18,6 +22,14 @@ fi
 if ! [ -f '/lib/systemd/systemd' ] || ! ps 1 | grep -qE 'systemd|/sbin/init'
 then
   echo "ERROR: ShieldWall depends on Systemd! Init process is other!"
+  exit 1
+fi
+
+if [[ "$LETSENCRYPT_CERTBOT" != "1" ]] && ! [ -f '/etc/nginx/ssl/shieldwall.key.pem' ]
+then
+  echo "ERROR: If LetsEncrypt certificate-generation is disabled you need to add the certificates beforehand:"
+  echo "  Key:        '/etc/nginx/ssl/shieldwall.key.pem'"
+  echo "  Cert-Chain: '/etc/nginx/ssl/shieldwall.crt.pem'"
   exit 1
 fi
 
@@ -87,6 +99,14 @@ apt -y --upgrade install nftables
 log 'INSTALLING SYSLOG'
 apt -y --upgrade install rsyslog rsyslog-gnutls logrotate
 
+log 'INSTALLING NGINX WEB-PROXY'
+apt -y --upgrade install nginx
+
+if [[ "$LETSENCRYPT_CERTBOT" == "1" ]]
+then
+  apt -y --upgrade install python3-certbot-nginx
+fi
+
 log 'DOWNLOADING SETUP FILES'
 DIR_SETUP="/tmp/controller-${CTRL_VERSION}"
 rm -rf "$DIR_SETUP"
@@ -116,6 +136,12 @@ function download_latest_github_release_filter() {
 
 function download_latest_github_release() {
   download_latest_github_release_filter "$1" "$2" "$3" '' '$%&'
+}
+
+function joinArray() {
+  local separator="$1"
+  shift
+  printf "%s" "${@/#/$separator}"
 }
 
 if ! grep -q "$USER" < '/etc/passwd'
@@ -244,14 +270,22 @@ systemctl restart logrotate.service
 
 if ! grep -q 'grafana' < '/etc/passwd'
 then
-  useradd --uid 472 'grafana' --system
+  useradd --uid 10000 'grafana'
 fi
 if ! grep -q 'loki' < '/etc/passwd'
 then
   useradd --uid 10001 'loki'
 fi
+if ! grep -q 'prometheus' < '/etc/passwd'
+then
+  useradd --uid 10002 'prometheus'
+fi
 
-cp "${DIR_SETUP}/files/log/grafana.ini" '/etc/shieldwall/log_grafana.ini'
+if ! [ -f '' ]
+then
+  cp "${DIR_SETUP}/files/log/grafana.ini" '/etc/shieldwall/log_grafana.ini'
+  # todo: replace <SHIELDWALL-ADMIN-PWD>, <SHIELDWALL-SECRET>
+fi
 cp "${DIR_SETUP}/files/log/grafana.yml" '/etc/shieldwall/log_grafana.yml'
 cp "${DIR_SETUP}/files/log/logserver.service" '/etc/systemd/system/shieldwall_logserver.service'
 cp "${DIR_SETUP}/files/log/logserver_update.service" '/etc/systemd/system/shieldwall_logserver_update.service'
@@ -266,9 +300,11 @@ fi
 
 mkdir -p "${DIR_LIB}/log/grafana"
 mkdir -p "${DIR_LIB}/log/loki"
+mkdir -p "${DIR_LIB}/log/prometheus"
 
 chown grafana:grafana "${DIR_LIB}/log/grafana/"
 chown loki:loki "${DIR_LIB}/log/loki/"
+chown prometheus:prometheus "${DIR_LIB}/log/prometheus/"
 chown "$USER" /etc/shieldwall/*
 
 new_service 'shieldwall_logserver'
@@ -290,6 +326,41 @@ do
 done
 
 systemctl restart shieldwall_logserver.service
+
+log 'NGINX WEB-PROXY'
+
+if [[ "$LETSENCRYPT_CERTBOT" == "1" ]]
+then
+  if ! [ -f '/etc/nginx/ssl/shieldwall.key.pem' ]
+  then
+    cp "${DIR_SETUP}/files/nginx/setup.conf" '/etc/nginx/sites-available/shieldwall_setup'
+    ln -fs '/etc/nginx/sites-available/shieldwall_setup' '/etc/nginx/sites-enabled/shieldwall'
+    systemctl restart nginx.service
+
+    echo "Generating certificate ..."
+    # shellcheck disable=SC2068
+    domain_string="$(joinArray ' --domain ' ${LETSENCRYPT_DOMAINS[@]})"
+    # shellcheck disable=SC2086
+    certbot certonly --non-interactive --agree-tos --no-redirect --nginx --cert-name 'shieldwall' -v --config-dir '/etc/letsencrypt' --email "$LETSENCRYPT_EMAIL" $domain_string
+
+    mkdir -p '/etc/nginx/ssl'
+    chmod 750 '/etc/nginx/ssl'
+    ln -fs '/etc/letsencrypt/live/shieldwall/privkey.pem' '/etc/nginx/ssl/shieldwall.key.pem'
+    ln -fs '/etc/letsencrypt/live/shieldwall/fullchain.pem' '/etc/nginx/ssl/shieldwall.crt.pem'
+
+    echo "Enabling & starting shieldwall_certificate_renewal.timer ..."
+    cp "${DIR_SETUP}/files/nginx/certbot_renewal.service" '/etc/systemd/system/shieldwall_certificate_renewal.service'
+    cp "${DIR_SETUP}/files/nginx/certbot_renewal.timer" '/etc/systemd/system/shieldwall_certificate_renewal.timer'
+    systemctl enable shieldwall_certificate_renewal.timer
+    systemctl start shieldwall_certificate_renewal.timer
+  fi
+
+fi
+
+cp "${DIR_SETUP}/files/nginx/server.conf" '/etc/nginx/sites-available/shieldwall'
+ln -fs '/etc/nginx/sites-available/shieldwall' '/etc/nginx/sites-enabled/shieldwall'
+systemctl restart nginx.service
+
 
 echo '#########################################'
 log 'SETUP FINISHED! Please reboot the system!'

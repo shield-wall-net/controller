@@ -1,0 +1,12 @@
+# ShielWall managed
+
+[Unit]
+Description=ShieldWall firewall - Certificate renewal timer
+
+[Timer]
+OnCalendar=Mon *-*-* 01:00:00
+Persistent=false
+WakeSystem=false
+
+[Install]
+WantedBy=multi-user.target
