@@ -1,7 +1,7 @@
 #!/bin/bash
 
+WEB_DOMAINS=()
 LETSENCRYPT_CERTBOT=1  # disable=set to 0
-LETSENCRYPT_DOMAINS=()
 LETSENCRYPT_EMAIL='webmaster@example.org'
 
 set -euo pipefail
@@ -22,6 +22,13 @@ fi
 if ! [ -f '/lib/systemd/systemd' ] || ! ps 1 | grep -qE 'systemd|/sbin/init'
 then
   echo "ERROR: ShieldWall depends on Systemd! Init process is other!"
+  exit 1
+fi
+
+# shellcheck disable=SC2128
+if [[ -z "$WEB_DOMAINS" ]]
+then
+  echo "ERROR: You need to provide at least one domain to use for the Controller web-services!"
   exit 1
 fi
 
@@ -141,7 +148,9 @@ function download_latest_github_release() {
 function joinArray() {
   local separator="$1"
   shift
-  printf "%s" "${@/#/$separator}"
+  local first="$1"
+  shift
+  printf "${first}%s" "${@/#/$separator}"
 }
 
 if ! grep -q "$USER" < '/etc/passwd'
@@ -339,7 +348,7 @@ then
 
     echo "Generating certificate ..."
     # shellcheck disable=SC2068
-    domain_string="$(joinArray ' --domain ' ${LETSENCRYPT_DOMAINS[@]})"
+    domain_string="--domain $(joinArray ' --domain ' ${WEB_DOMAINS[@]})"
     # shellcheck disable=SC2086
     certbot certonly --non-interactive --agree-tos --no-redirect --nginx --cert-name 'shieldwall' -v --config-dir '/etc/letsencrypt' --email "$LETSENCRYPT_EMAIL" $domain_string
 
@@ -358,6 +367,9 @@ then
 fi
 
 cp "${DIR_SETUP}/files/nginx/server.conf" '/etc/nginx/sites-available/shieldwall'
+# shellcheck disable=SC2068
+domain_reg="$(joinArray '|' ${WEB_DOMAINS[@]})"
+sed -i "s/<DOMAINS>/$domain_reg/g" '/etc/nginx/sites-available/shieldwall'
 ln -fs '/etc/nginx/sites-available/shieldwall' '/etc/nginx/sites-enabled/shieldwall'
 systemctl restart nginx.service
 
@@ -366,5 +378,3 @@ echo '#########################################'
 log 'SETUP FINISHED! Please reboot the system!'
 
 exit 0
-
-}
