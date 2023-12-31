@@ -18,6 +18,13 @@
 {% endblock %}
 
 {% block prerouting_dnat %}
+{%   if redirect_dns | default(true) %}
+{# todo: support for multiple ones (failover handling?) #}
+   tcp dport { 53, 853 } ip daddr != $IP4_DNS dnat to $IP4_DNS
+   udp dport 53 ip daddr != $IP4_DNS dnat to $IP4_DNS
+   tcp dport { 53, 853 } ip6 daddr != $IP6_DNS dnat to $IP6_DNS
+   udp dport 53 ip6 daddr != $IP6_DNS dnat to $IP6_DNS
+{%   endif %}
 {%   if use_proxy | default(true) %}
     ip daddr != $IP4_NET_PROXY_EXCLUDES tcp dport $PORT_PROXY_INTERCEPT_PLAIN dnat to 127.0.0.1:$PORT_PROXY_TRANSPARENT_PLAIN
     ip6 daddr != $IP6_NET_PROXY_EXCLUDES tcp dport $PORT_PROXY_INTERCEPT_PLAIN dnat to [::1]:$PORT_PROXY_TRANSPARENT_PLAIN

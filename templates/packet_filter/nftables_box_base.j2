@@ -31,6 +31,10 @@ define IP6_NET_PROXY_EXCLUDES = { ::1 };
 # todo: add controller ips
 define IP4_NET_PROXY_EXCLUDES_BOX = { 127.0.0.1 };
 define IP6_NET_PROXY_EXCLUDES_BOX = { ::1 };
+# todo: support for multiple ones (failover handling?)
+# todo: add hint that cloudflare dns can be used to block known maleware & porn; https://developers.cloudflare.com/1.1.1.1/infrastructure/network-operators/
+define IP4_DNS = 1.1.1.2;
+define IP6_DNS = 2606:4700:4700::1112;
 {% endif %}
 
 
@@ -199,9 +203,12 @@ table inet managed {
 
     # todo: limit destination to configured dns/ntp servers
     # allow dns
-    tcp dport { 53, 853 } ct state new log prefix "NFTables BOX-ACCEPT output DNS: "
-    tcp dport { 53, 853 } accept
-    udp dport 53 log prefix "NFTables BOX-ACCEPT output DNS: " accept
+    tcp dport { 53, 853 } ip daddr $IP4_DNS ct state new log prefix "NFTables BOX-ACCEPT output DNS: "
+    tcp dport { 53, 853 } ip daddr $IP4_DNS accept
+    tcp dport { 53, 853 } ip6 daddr $IP6_DNS ct state new log prefix "NFTables BOX-ACCEPT output DNS: "
+    tcp dport { 53, 853 } ip6 daddr $IP6_DNS accept
+    udp dport 53 ip daddr $IP4_DNS log prefix "NFTables BOX-ACCEPT output DNS: " accept
+    udp dport 53 ip6 daddr $IP6_DNS log prefix "NFTables BOX-ACCEPT output DNS: " accept
 
     # allow ntp
     tcp dport 123 ct state new log prefix "NFTables BOX-ACCEPT output NTP: "
